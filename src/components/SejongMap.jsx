@@ -25,6 +25,17 @@ const LABEL_OFFSETS = {
   금남면: { x: 0, y: 30 },
 };
 const CALLOUT_SIZE = { width: 112, height: 76 };
+const FEATURE_AREA_OVERRIDES = {
+  36110105: "hansol",
+  36110115: "haemil",
+  36110120: "haemil",
+  36110121: "haemil",
+  36110119: "eojin",
+  36110118: "bangok",
+  36110117: "bangok",
+  36110123: "bangok",
+  36110122: "bangok",
+};
 const OVERVIEW_CALLOUT_OFFSETS = {
   소정면: { x: 74, y: -50 },
   전의면: { x: -134, y: -8 },
@@ -124,6 +135,25 @@ function centerOfFeatures(features, project) {
   return project([(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2]);
 }
 
+function getFeatureAreaId(feature) {
+  return FEATURE_AREA_OVERRIDES[feature.id] || feature.properties.gameAreaId || null;
+}
+
+function getFeatureGroupLabel(areaId) {
+  return AREA_BY_ID[areaId]?.name || areaId;
+}
+
+function groupFeaturesByArea(features) {
+  const groups = new Map();
+  for (const feature of features) {
+    const areaId = getFeatureAreaId(feature);
+    if (!areaId) continue;
+    if (!groups.has(areaId)) groups.set(areaId, []);
+    groups.get(areaId).push(feature);
+  }
+  return groups;
+}
+
 function applyLabelOffset(label, point) {
   const offset = LABEL_OFFSETS[label] || { x: 0, y: 0 };
   return [point[0] + offset.x, point[1] + offset.y];
@@ -193,10 +223,12 @@ function getCalloutAnchor(baseAnchor, featureName, mode) {
 }
 
 function sumFeatureVotes(features, electionDatasetId) {
+  const areaIds = new Set();
   return features.reduce(
     (sum, feature) => {
-      const areaId = feature.properties.gameAreaId;
-      if (!areaId) return sum;
+      const areaId = getFeatureAreaId(feature);
+      if (!areaId || areaIds.has(areaId)) return sum;
+      areaIds.add(areaId);
       const votes = getAreaVotes(areaId, electionDatasetId);
       return {
         DEM: sum.DEM + votes.DEM,
@@ -208,7 +240,7 @@ function sumFeatureVotes(features, electionDatasetId) {
 }
 
 function getDistrictStyle(feature, assignments, selectedAreaIds, selectableAreaIds) {
-  const areaId = feature.properties.gameAreaId;
+  const areaId = getFeatureAreaId(feature);
   const districtId = areaId ? assignments?.[areaId] : null;
   const district = districtId ? DISTRICT_THEME[districtId] : null;
   const isSelected = areaId ? selectedAreaIds?.includes(areaId) : false;
@@ -405,12 +437,15 @@ export default function SejongMap({
 
   const detailLabels = useMemo(
     () =>
-      visibleFeatures.map((feature) => ({
-        key: feature.id,
-        label: feature.properties.name,
-        point: applyLabelOffset(feature.properties.name, centerOfFeature(feature, project)),
-        strong: feature.properties.isHappyCity,
-      })),
+      Array.from(groupFeaturesByArea(visibleFeatures).entries()).map(([areaId, features]) => {
+        const label = getFeatureGroupLabel(areaId);
+        return {
+          key: areaId,
+          label,
+          point: applyLabelOffset(label, centerOfFeatures(features, project)),
+          strong: features.some((feature) => feature.properties.isHappyCity),
+        };
+      }),
     [project, visibleFeatures],
   );
   const shouldShowVoteCallouts = showVoteCallouts ?? !compact;
@@ -428,19 +463,19 @@ export default function SejongMap({
     const mapCenter = project([(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2]);
     const calloutFeatures =
       mode === "overview"
-        ? visibleFeatures.filter((feature) => feature.properties.gameAreaId && !feature.properties.isHappyCity)
-        : visibleFeatures.filter((feature) => feature.properties.gameAreaId);
+        ? visibleFeatures.filter((feature) => getFeatureAreaId(feature) && !feature.properties.isHappyCity)
+        : visibleFeatures.filter((feature) => getFeatureAreaId(feature));
 
-    const callouts = calloutFeatures.map((feature) => {
-      const baseAnchor = centerOfFeature(feature, project);
-      const label = feature.properties.name;
+    const callouts = Array.from(groupFeaturesByArea(calloutFeatures).entries()).map(([areaId, features]) => {
+      const baseAnchor = centerOfFeatures(features, project);
+      const label = getFeatureGroupLabel(areaId);
       return {
-        key: feature.id,
+        key: areaId,
         label,
         anchor: getCalloutAnchor(baseAnchor, label, mode),
-        box: getCalloutBox(baseAnchor, label, mode, mapCenter, feature.properties.gameAreaId),
-        votes: getAreaVotes(feature.properties.gameAreaId, electionDatasetId),
-        disabled: isAreaDisabled(feature.properties.gameAreaId),
+        box: getCalloutBox(baseAnchor, label, mode, mapCenter, areaId),
+        votes: getAreaVotes(areaId, electionDatasetId),
+        disabled: isAreaDisabled(areaId),
       };
     });
 
@@ -577,7 +612,7 @@ export default function SejongMap({
       return;
     }
 
-    const areaId = feature.properties.gameAreaId;
+    const areaId = getFeatureAreaId(feature);
     if (mode === "overview" && feature.properties.isHappyCity) {
       setMode("happy");
       return;
@@ -667,7 +702,7 @@ export default function SejongMap({
         <g>
           {visibleFeatures.map((feature) => {
             const style = getDistrictStyle(feature, assignments, selectedAreaIds, selectableAreaIds);
-            const areaId = feature.properties.gameAreaId;
+            const areaId = getFeatureAreaId(feature);
             const disabled = isAreaDisabled(areaId);
 
             return (

@@ -270,6 +270,9 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
                 {RECOMMENDED_DISTRICT_COUNT}개 선거구 기준 · 선택 인구 {formatNumber(selectedPopulation)}명 · 권장 {formatNumber(populationRange.minPopulation)}~{formatNumber(populationRange.maxPopulation)}명
               </p>
             </div>
+            <p className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-extrabold leading-5 text-[var(--color-brand-ink)] ring-1 ring-blue-100">
+              행복도시의 일부 신설 법정동은 별도 선거 데이터가 없어, 수업용 선거 조각에서는 가까운 기존 법정동 묶음으로 합쳐 표시합니다.
+            </p>
             <div className="mb-3 rounded-xl border border-[var(--color-border)] bg-white p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
