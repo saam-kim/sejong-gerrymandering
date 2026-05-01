@@ -4,6 +4,16 @@ import TeacherBoard from "./components/TeacherBoard";
 
 const TEACHER_PIN = "1234";
 const TEACHER_ACCESS_KEY = "gerrymanderingTeacherAccess";
+const FIREBASE_CONFIG_STORAGE_KEY = "gerrymanderingFirebaseConfig";
+const FIREBASE_CONFIG_TEMPLATE = `const firebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  databaseURL: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};`;
 
 function generatePin() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -28,6 +38,24 @@ function grantTeacherAccess() {
   } catch {
     // If session storage is blocked, the PIN screen will appear again on reload.
   }
+}
+
+function readStoredFirebaseConfig() {
+  try {
+    const raw = window.localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractFirebaseConfig(rawText) {
+  const keys = ["apiKey", "authDomain", "databaseURL", "projectId", "storageBucket", "messagingSenderId", "appId"];
+  return keys.reduce((config, key) => {
+    const match = rawText.match(new RegExp(`${key}\\s*:\\s*["']([^"']*)["']`));
+    config[key] = match?.[1]?.trim() || "";
+    return config;
+  }, {});
 }
 
 function useRoute() {
@@ -70,6 +98,86 @@ function makeTeamId(teamName) {
     .slice(0, 20);
 
   return `${safeName || "team"}-${suffix}`;
+}
+
+function FirebaseSettingsPanel() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [configText, setConfigText] = useState(() => {
+    const storedConfig = readStoredFirebaseConfig();
+    return storedConfig ? `const firebaseConfig = ${JSON.stringify(storedConfig, null, 2)};` : FIREBASE_CONFIG_TEMPLATE;
+  });
+  const [status, setStatus] = useState(() => (readStoredFirebaseConfig() ? "firebase" : "local"));
+  const [message, setMessage] = useState("");
+
+  function saveFirebaseConfig() {
+    const nextConfig = extractFirebaseConfig(configText);
+    if (!nextConfig.apiKey || !nextConfig.databaseURL || !nextConfig.projectId) {
+      setMessage("apiKey, databaseURL, projectId가 포함된 설정 객체를 붙여넣어 주세요.");
+      return;
+    }
+
+    window.localStorage.setItem(FIREBASE_CONFIG_STORAGE_KEY, JSON.stringify(nextConfig));
+    setStatus("firebase");
+    setMessage("Firebase 설정을 저장했습니다. 새로고침하면 실시간 DB를 사용합니다.");
+  }
+
+  function clearFirebaseConfig() {
+    window.localStorage.removeItem(FIREBASE_CONFIG_STORAGE_KEY);
+    setConfigText(FIREBASE_CONFIG_TEMPLATE);
+    setStatus("local");
+    setMessage("저장된 Firebase 설정을 지웠습니다.");
+  }
+
+  return (
+    <div className="mt-6 border-t border-[var(--color-border)] pt-5">
+      <div className={`flex items-center justify-between gap-3 rounded-xl border-l-4 p-4 ${
+        status === "firebase" ? "border-emerald-500 bg-emerald-50" : "border-rose-500 bg-rose-50"
+      }`}>
+        <p className={`text-base font-black ${status === "firebase" ? "text-emerald-900" : "text-rose-900"}`}>
+          {status === "firebase" ? "Firebase 연결 설정 저장됨" : "현재는 로컬 데모 모드"}
+        </p>
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[var(--color-text)] shadow-sm"
+        >
+          Firebase 설정
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-white p-4">
+          <h3 className="text-lg font-black text-[var(--color-text)]">
+            Firebase 콘솔의 웹 앱 설정 객체를 그대로 붙여넣으세요.
+          </h3>
+          <p className="mt-2 text-sm font-bold leading-6 text-[var(--color-text-muted)]">
+            저장 후 새로고침하면 이 브라우저는 Realtime Database를 사용합니다. 학생 기기들도 같은 설정이 들어간 배포 주소나 같은 설정 저장이 필요합니다.
+          </p>
+          <textarea
+            value={configText}
+            onChange={(event) => {
+              setConfigText(event.target.value);
+              setMessage("");
+            }}
+            className="mt-3 h-48 w-full rounded-lg border border-[var(--color-border)] bg-white p-3 font-mono text-sm font-bold leading-5 outline-none focus:border-[var(--color-brand)] focus:ring-4 focus:ring-blue-100"
+            spellCheck={false}
+          />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={saveFirebaseConfig} className="bo-button-primary px-4 py-3 text-sm">
+              설정 저장
+            </button>
+            <button type="button" onClick={() => window.location.reload()} className="bo-button-secondary px-4 py-3 text-sm">
+              새로고침
+            </button>
+            <button type="button" onClick={clearFirebaseConfig} className="bo-button-secondary px-4 py-3 text-sm">
+              저장 설정 지우기
+            </button>
+          </div>
+          {message ? <p className="mt-3 text-sm font-black text-[var(--color-brand-ink)]">{message}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function Home() {
@@ -168,6 +276,7 @@ function Home() {
           >
             입장하기
           </button>
+          <FirebaseSettingsPanel />
         </form>
       </section>
     </main>

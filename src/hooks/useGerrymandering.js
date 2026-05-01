@@ -16,7 +16,27 @@ import {
   validatePlan,
 } from "../data/gerrymandering";
 
+const FIREBASE_CONFIG_STORAGE_KEY = "gerrymanderingFirebaseConfig";
+
+function getStoredFirebaseConfig() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(FIREBASE_CONFIG_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function getFirebaseConfig() {
+  const storedConfig = getStoredFirebaseConfig();
+  if (storedConfig?.apiKey || storedConfig?.databaseURL || storedConfig?.projectId) {
+    return storedConfig;
+  }
+
   const env = import.meta.env || {};
 
   return {
@@ -83,6 +103,7 @@ export function useGerrymandering({
   autoRegisterTeam = true,
 } = {}) {
   const [mission, setMissionState] = useState(null);
+  const [room, setRoom] = useState({});
   const [teams, setTeams] = useState({});
   const [submissions, setSubmissions] = useState({});
   const [loading, setLoading] = useState(Boolean(pin));
@@ -114,6 +135,9 @@ export function useGerrymandering({
 
     setLoading(true);
     const unsubscribers = [
+      onValue(ref(database, gamePath(pin, "room")), (snapshot) => {
+        setRoom(snapshot.val() || {});
+      }),
       onValue(ref(database, gamePath(pin, "mission")), (snapshot) => {
         setMissionState(snapshot.val());
         setLoading(false);
@@ -247,6 +271,20 @@ export function useGerrymandering({
     await remove(ref(database, gamePath(pin, "submissions")));
   }, [database, pin]);
 
+  const confirmTeams = useCallback(
+    async (teamEntries = []) => {
+      if (!database || !pin) return;
+
+      await update(ref(database, gamePath(pin, "room")), {
+        teamsConfirmed: true,
+        confirmedTeamIds: teamEntries.map((team) => team.teamId),
+        confirmedTeamNames: teamEntries.map((team) => team.teamName),
+        teamsConfirmedAt: serverTimestamp(),
+      });
+    },
+    [database, pin],
+  );
+
   const leaderboard = useMemo(() => {
     const statusRank = {
       mission_success: 0,
@@ -270,6 +308,7 @@ export function useGerrymandering({
   return {
     db: database,
     mission,
+    room,
     teams,
     submissions,
     leaderboard,
@@ -279,6 +318,7 @@ export function useGerrymandering({
     submitPlan,
     setMission,
     resetRound,
+    confirmTeams,
   };
 }
 

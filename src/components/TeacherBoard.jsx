@@ -103,7 +103,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const [missionType, setMissionType] = useState(DEFAULT_MISSION_TYPE);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [compareTeamId, setCompareTeamId] = useState(null);
-  const { mission, leaderboard, setMission, resetRound, error } = useGerrymandering({
+  const { mission, room, teams, leaderboard, setMission, resetRound, confirmTeams, error } = useGerrymandering({
     pin,
     db,
     autoRegisterTeam: false,
@@ -124,6 +124,19 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const compareSubmission = useMemo(() => {
     return leaderboard.find((entry) => entry.teamId === compareTeamId) || null;
   }, [compareTeamId, leaderboard]);
+
+  const teamEntries = useMemo(
+    () =>
+      Object.entries(teams || {})
+        .map(([teamId, value]) => ({
+          teamId,
+          teamName: value?.teamName || teamId,
+          online: Boolean(value?.online),
+          lastSeenAt: value?.lastSeenAt || null,
+        }))
+        .sort((left, right) => left.teamName.localeCompare(right.teamName, "ko")),
+    [teams],
+  );
 
   const populationRange = getPopulationRange(DISTRICTS.length);
   const districtCountReview = useMemo(() => getDistrictCountReview(), []);
@@ -285,6 +298,45 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
               </button>
             </div>
             {error && <p className="bo-callout-blue mt-3 p-3 text-sm font-bold">{error.message}</p>}
+          </section>
+
+          <section className="bo-card p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="bo-label">TEAM CHECK-IN</p>
+                <h2 className="bo-heading mt-1 text-xl">입장 모둠 확인</h2>
+              </div>
+              <span className="bo-pill px-3 py-1 text-sm">{teamEntries.length}팀</span>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {teamEntries.length === 0 ? (
+                <p className="rounded-lg bg-[var(--color-bg-soft)] p-4 text-center text-sm font-bold text-[var(--color-text-faint)]">
+                  아직 입장한 모둠이 없습니다.
+                </p>
+              ) : (
+                teamEntries.map((team) => (
+                  <div key={team.teamId} className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-3 py-2">
+                    <span className="text-sm font-black text-[var(--color-text)]">{team.teamName}</span>
+                    <span className={`rounded-md px-2 py-1 text-xs font-black ${team.online ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
+                      입장
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => confirmTeams(teamEntries)}
+              disabled={teamEntries.length === 0}
+              className="bo-button-primary mt-3 w-full px-4 py-3 text-sm"
+            >
+              참여 모둠 확정
+            </button>
+            {room?.teamsConfirmed ? (
+              <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
+                참여 모둠 확정 완료: {(room.confirmedTeamNames || []).join(", ") || `${teamEntries.length}팀`}
+              </p>
+            ) : null}
           </section>
 
           <section className="bo-card p-4">
