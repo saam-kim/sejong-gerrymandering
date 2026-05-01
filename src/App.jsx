@@ -26,7 +26,12 @@ function useRoute() {
 
   const url = new URL(window.location.href);
   const hashRoute = url.hash.startsWith("#/") ? url.hash.slice(1) : "";
-  const [path, hashQuery = ""] = hashRoute ? hashRoute.split("?") : [url.pathname, ""];
+  const [rawPath, hashQuery = ""] = hashRoute ? hashRoute.split("?") : [url.pathname, ""];
+  const basePath = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+  const path =
+    !hashRoute && basePath && rawPath.startsWith(basePath)
+      ? rawPath.slice(basePath.length) || "/"
+      : rawPath;
   const segments = path.split("/").filter(Boolean).map(decodeURIComponent);
 
   return {
