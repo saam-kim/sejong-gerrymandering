@@ -271,7 +271,7 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
               </p>
             </div>
             <p className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-extrabold leading-5 text-[var(--color-brand-ink)] ring-1 ring-blue-100">
-              행복도시의 일부 신설 법정동은 별도 선거 데이터가 없어, 수업용 선거 조각에서는 가까운 기존 법정동 묶음으로 합쳐 표시합니다.
+              선거구 획정 단위는 행정동·읍·면 기준입니다. 예를 들어 가람동은 한솔동 묶음으로 처리되어 장군면과 연결될 수 있습니다.
             </p>
             <div className="mb-3 rounded-xl border border-[var(--color-border)] bg-white p-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
