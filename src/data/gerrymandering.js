@@ -36,12 +36,59 @@ export const DISTRICT_THEME = {
   5: { name: "제5선거구", color: "#0F766E", soft: "#DDF7F2" },
 };
 
-const AREA_GRID = [
-  ["sojeong", "jeonui", "jeondong", "yeonseo", "jochiwon", "yeondong"],
-  ["janggun", "yeongi", "haemil", "areum", "dodam", "bugang"],
-  ["goun", "jongchon", "eojin", "dajeong", "saerom", "naseong"],
-  ["hansol", "geumnam", "daepyeong", "boram", "sodam", "bangok"],
+const AREA_ORDER = [
+  "sojeong",
+  "jeonui",
+  "jeondong",
+  "yeonseo",
+  "jochiwon",
+  "yeondong",
+  "janggun",
+  "yeongi",
+  "haemil",
+  "areum",
+  "dodam",
+  "bugang",
+  "goun",
+  "jongchon",
+  "eojin",
+  "dajeong",
+  "saerom",
+  "naseong",
+  "hansol",
+  "geumnam",
+  "daepyeong",
+  "boram",
+  "sodam",
+  "bangok",
 ];
+
+const AREA_NEIGHBORS = {
+  sojeong: ["jeonui"],
+  jeonui: ["sojeong", "jeondong"],
+  jeondong: ["jeonui", "yeonseo", "jochiwon"],
+  yeonseo: ["jeondong", "jochiwon"],
+  jochiwon: ["yeonseo", "jeondong"],
+  yeondong: ["geumnam", "bugang", "yeongi"],
+  janggun: ["goun", "geumnam", "dajeong", "saerom", "yeongi"],
+  yeongi: ["goun", "yeondong", "janggun"],
+  haemil: ["dodam"],
+  areum: ["goun", "dodam", "jongchon"],
+  dodam: ["areum", "eojin", "jongchon", "haemil"],
+  bugang: ["geumnam", "yeondong"],
+  goun: ["dajeong", "areum", "yeongi", "janggun", "jongchon"],
+  jongchon: ["goun", "dajeong", "dodam", "areum", "eojin"],
+  eojin: ["naseong", "dajeong", "dodam", "jongchon"],
+  dajeong: ["goun", "naseong", "saerom", "eojin", "janggun", "jongchon"],
+  saerom: ["naseong", "dajeong", "janggun", "hansol"],
+  naseong: ["dajeong", "saerom", "eojin", "hansol"],
+  hansol: ["naseong", "saerom"],
+  geumnam: ["daepyeong", "bangok", "boram", "bugang", "sodam", "yeondong", "janggun"],
+  daepyeong: ["geumnam", "boram"],
+  boram: ["geumnam", "daepyeong", "sodam"],
+  sodam: ["geumnam", "bangok", "boram"],
+  bangok: ["geumnam", "sodam"],
+};
 
 const AREA_INFO = {
   sojeong: ["소정면", 2800, 920, 1180],
@@ -318,32 +365,7 @@ const AREA_SHAPES = {
   ],
 };
 
-const EXTRA_NEIGHBORS = {
-  daepyeong: ["sodam"],
-  sodam: ["daepyeong"],
-};
-
-function buildNeighbors(rowIndex, colIndex) {
-  const neighbors = [];
-  const areaId = AREA_GRID[rowIndex][colIndex];
-  const directions = [
-    [0, -1],
-    [0, 1],
-    [-1, 0],
-    [1, 0],
-  ];
-
-  for (const [rowDelta, colDelta] of directions) {
-    const row = AREA_GRID[rowIndex + rowDelta];
-    const id = row?.[colIndex + colDelta];
-    if (id) neighbors.push(id);
-  }
-
-  return [...new Set([...neighbors, ...(EXTRA_NEIGHBORS[areaId] || [])])];
-}
-
-export const SEJONG_AREAS = AREA_GRID.flatMap((row, rowIndex) =>
-  row.map((id, colIndex) => {
+export const SEJONG_AREAS = AREA_ORDER.map((id) => {
     const [name, population, demVotes, pppVotes] = AREA_INFO[id];
 
     return {
@@ -351,14 +373,13 @@ export const SEJONG_AREAS = AREA_GRID.flatMap((row, rowIndex) =>
       name,
       population,
       votes: { DEM: demVotes, PPP: pppVotes },
-      neighbors: buildNeighbors(rowIndex, colIndex),
+      neighbors: AREA_NEIGHBORS[id] || [],
       geometry: {
         type: "Polygon",
         coordinates: [AREA_SHAPES[id]],
       },
     };
-  }),
-);
+  });
 
 export const SEJONG_GEOJSON = {
   type: "FeatureCollection",
@@ -381,23 +402,23 @@ export const SAMPLE_OPTIMIZED_ASSIGNMENTS = {
   jeondong: 1,
   yeonseo: 1,
   jochiwon: 1,
-  yeondong: 1,
-  janggun: 1,
-  yeongi: 1,
-  haemil: 2,
-  areum: 2,
-  dodam: 2,
+  yeondong: 2,
+  janggun: 2,
+  yeongi: 2,
   bugang: 2,
-  eojin: 2,
-  goun: 3,
-  jongchon: 3,
-  hansol: 3,
+  goun: 2,
+  jongchon: 2,
+  haemil: 3,
+  areum: 3,
+  dodam: 3,
+  eojin: 3,
   dajeong: 4,
   saerom: 4,
   naseong: 4,
-  boram: 4,
+  hansol: 4,
   geumnam: 5,
   daepyeong: 5,
+  boram: 5,
   sodam: 5,
   bangok: 5,
 };
