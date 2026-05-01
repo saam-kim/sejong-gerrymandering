@@ -42,6 +42,27 @@ const OVERVIEW_CALLOUT_ANCHOR_OFFSETS = {
   전의면: { x: -34, y: -42 },
   금남면: { x: 0, y: 30 },
 };
+const HAPPY_CALLOUT_OFFSETS = {
+  yeongi: { x: -184, y: -140 },
+  yeondong: { x: 120, y: -129 },
+  bugang: { x: 93, y: -54 },
+  janggun: { x: -132, y: -7 },
+  goun: { x: -183, y: -109 },
+  areum: { x: -209, y: -18 },
+  haemil: { x: -97, y: -198 },
+  dodam: { x: 56, y: -231 },
+  jongchon: { x: -204, y: 35 },
+  dajeong: { x: -194, y: 99 },
+  saerom: { x: -178, y: 164 },
+  hansol: { x: -143, y: 233 },
+  eojin: { x: 178, y: -258 },
+  naseong: { x: 328, y: 230 },
+  daepyeong: { x: 3, y: 255 },
+  boram: { x: 120, y: 271 },
+  sodam: { x: 302, y: 125 },
+  bangok: { x: 287, y: 12 },
+  geumnam: { x: -124, y: 320 },
+};
 
 function featureRings(feature) {
   if (!feature.geometry) return [];
@@ -67,9 +88,9 @@ function getBounds(features) {
   );
 }
 
-function createProjector(bounds, offset = { x: 0, y: 0 }) {
-  const availableWidth = VIEWBOX.width - VIEWBOX.padding * 2;
-  const availableHeight = VIEWBOX.height - VIEWBOX.padding * 2;
+function createProjector(bounds, offset = { x: 0, y: 0 }, padding = VIEWBOX.padding) {
+  const availableWidth = VIEWBOX.width - padding * 2;
+  const availableHeight = VIEWBOX.height - padding * 2;
   const scale = Math.min(availableWidth / (bounds.maxX - bounds.minX), availableHeight / (bounds.maxY - bounds.minY));
   const drawnWidth = (bounds.maxX - bounds.minX) * scale;
   const drawnHeight = (bounds.maxY - bounds.minY) * scale;
@@ -145,8 +166,9 @@ function getViewBoxState(zoom, pan) {
   return { x, y, width, height };
 }
 
-function getCalloutBox(anchor, featureName, mode, mapCenter) {
-  const staticOffset = mode === "overview" ? OVERVIEW_CALLOUT_OFFSETS[featureName] : null;
+function getCalloutBox(anchor, featureName, mode, mapCenter, featureKey = featureName) {
+  const staticOffset =
+    mode === "overview" ? OVERVIEW_CALLOUT_OFFSETS[featureName] : HAPPY_CALLOUT_OFFSETS[featureKey];
   const dynamicOffset = staticOffset || {
     x: anchor[0] >= mapCenter[0] ? 82 : -82,
     y: anchor[1] >= mapCenter[1] ? 58 : -58,
@@ -191,6 +213,7 @@ function getDistrictStyle(feature, assignments, selectedAreaIds, selectableAreaI
   const district = districtId ? DISTRICT_THEME[districtId] : null;
   const isSelected = areaId ? selectedAreaIds?.includes(areaId) : false;
   const isSelectable = areaId ? selectableAreaIds?.includes(areaId) : false;
+  const isSelectionInProgress = selectedAreaIds?.length > 0;
 
   if (district) {
     return {
@@ -206,6 +229,15 @@ function getDistrictStyle(feature, assignments, selectedAreaIds, selectableAreaI
       fill: "#D9F7E8",
       stroke: "#16844A",
       strokeWidth: 3.6,
+      opacity: 1,
+    };
+  }
+
+  if (isSelectionInProgress && isSelectable) {
+    return {
+      fill: "#FFFFFF",
+      stroke: "#1B6BFF",
+      strokeWidth: 2.4,
       opacity: 1,
     };
   }
@@ -326,7 +358,15 @@ export default function SejongMap({
     return sejongBoundaries.features;
   }, [mode]);
 
-  const project = useMemo(() => createProjector(getBounds(visibleFeatures), mode === "overview" ? { x: 0, y: 34 } : { x: 0, y: 0 }), [mode, visibleFeatures]);
+  const project = useMemo(
+    () =>
+      createProjector(
+        getBounds(visibleFeatures),
+        mode === "overview" ? { x: 0, y: 34 } : { x: 0, y: -120 },
+        mode === "happy" ? 128 : VIEWBOX.padding,
+      ),
+    [mode, visibleFeatures],
+  );
   const svgViewBox = useMemo(() => getZoomedViewBox(zoom, pan), [pan, zoom]);
   const happyFeatures = useMemo(
     () => visibleFeatures.filter((feature) => feature.properties.isHappyCity),
@@ -377,7 +417,7 @@ export default function SejongMap({
         key: feature.id,
         label,
         anchor: getCalloutAnchor(baseAnchor, label, mode),
-        box: getCalloutBox(baseAnchor, label, mode, mapCenter),
+        box: getCalloutBox(baseAnchor, label, mode, mapCenter, feature.properties.gameAreaId),
         votes: getAreaVotes(feature.properties.gameAreaId, electionDatasetId),
       };
     });
@@ -523,8 +563,11 @@ export default function SejongMap({
     if (areaId && onToggleArea) onToggleArea(areaId);
   }
 
+  const mapHeightClass = compact ? "h-[360px]" : mode === "happy" ? "h-[920px]" : "h-[760px]";
+  const minHeightClass = compact ? "min-h-[280px]" : mode === "happy" ? "min-h-[820px]" : "min-h-[660px]";
+
   return (
-    <div className={`relative w-full overflow-hidden rounded-xl bg-white ${compact ? "min-h-[280px]" : "min-h-[660px]"}`}>
+    <div className={`relative w-full overflow-hidden rounded-xl bg-white ${minHeightClass}`}>
       <div className="absolute left-3 top-3 z-10 flex gap-2">
         <button
           type="button"
@@ -589,7 +632,7 @@ export default function SejongMap({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
-        className={`block w-full select-none ${compact ? "h-[360px]" : "h-[760px]"} touch-none ${
+        className={`block w-full select-none ${mapHeightClass} touch-none ${
           zoom > MIN_ZOOM ? (dragStart ? "cursor-grabbing" : "cursor-grab") : ""
         }`}
       >

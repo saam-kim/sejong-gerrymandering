@@ -259,7 +259,7 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="bo-card p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
