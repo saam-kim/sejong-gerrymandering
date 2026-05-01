@@ -30,7 +30,7 @@ const FEATURE_AREA_OVERRIDES = {
   36110115: "haemil",
   36110120: "haemil",
   36110121: "haemil",
-  36110119: "eojin",
+  36110119: "naseong",
   36110118: "bangok",
   36110117: "bangok",
   36110123: "bangok",
