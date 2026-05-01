@@ -242,6 +242,15 @@ function getDistrictStyle(feature, assignments, selectedAreaIds, selectableAreaI
     };
   }
 
+  if (isSelectionInProgress && areaId && !isSelectable) {
+    return {
+      fill: "#EEF2F6",
+      stroke: "#A8B0BA",
+      strokeWidth: 1.2,
+      opacity: 0.55,
+    };
+  }
+
   if (feature.properties.isHappyCity) {
     return {
       fill: "#DFF4FF",
@@ -282,17 +291,23 @@ function Label({ x, y, children, size = 24, strong = false }) {
   );
 }
 
-function VoteCallout({ anchor, box, label, votes }) {
+function VoteCallout({ anchor, box, label, votes, disabled = false }) {
   const total = votes.DEM + votes.PPP;
+  const lineColor = disabled ? "#9CA3AF" : "#111827";
+  const cardFill = disabled ? "#F8FAFC" : "#FFFFFF";
+  const titleColor = disabled ? "#64748B" : "#111827";
+  const demColor = disabled ? "#8FB3FF" : "#1B6BFF";
+  const pppColor = disabled ? "#F2A1A1" : "#E34848";
+  const totalColor = disabled ? "#94A3B8" : "#475569";
 
   return (
-    <g className="pointer-events-none select-none" style={{ userSelect: "none", WebkitUserSelect: "none" }}>
+    <g className="pointer-events-none select-none" opacity={disabled ? 0.52 : 1} style={{ userSelect: "none", WebkitUserSelect: "none" }}>
       <line
         x1={anchor[0]}
         y1={anchor[1]}
         x2={box.center[0]}
         y2={box.center[1]}
-        stroke="#111827"
+        stroke={lineColor}
         strokeWidth="2.67"
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"
@@ -302,7 +317,7 @@ function VoteCallout({ anchor, box, label, votes }) {
         cy={anchor[1]}
         r="5"
         fill="#FFFFFF"
-        stroke="#111827"
+        stroke={lineColor}
         strokeWidth="2.67"
         vectorEffect="non-scaling-stroke"
       />
@@ -312,21 +327,21 @@ function VoteCallout({ anchor, box, label, votes }) {
         width={CALLOUT_SIZE.width}
         height={CALLOUT_SIZE.height}
         rx="8"
-        fill="#FFFFFF"
+        fill={cardFill}
         stroke="#D7DEE8"
         strokeWidth="1.5"
         filter="url(#vote-card-shadow)"
       />
-      <text x={box.x + 10} y={box.y + 19} style={{ fill: "#111827", fontSize: 13, fontWeight: 900 }}>
+      <text x={box.x + 10} y={box.y + 19} style={{ fill: titleColor, fontSize: 13, fontWeight: 900 }}>
         {label}
       </text>
-      <text x={box.x + 10} y={box.y + 37} style={{ fill: "#1B6BFF", fontSize: 12, fontWeight: 800 }}>
+      <text x={box.x + 10} y={box.y + 37} style={{ fill: demColor, fontSize: 12, fontWeight: 800 }}>
         민주: {formatMapNumber(votes.DEM)}
       </text>
-      <text x={box.x + 10} y={box.y + 53} style={{ fill: "#E34848", fontSize: 12, fontWeight: 800 }}>
+      <text x={box.x + 10} y={box.y + 53} style={{ fill: pppColor, fontSize: 12, fontWeight: 800 }}>
         국힘: {formatMapNumber(votes.PPP)}
       </text>
-      <text x={box.x + 10} y={box.y + 68} style={{ fill: "#475569", fontSize: 12, fontWeight: 800 }}>
+      <text x={box.x + 10} y={box.y + 68} style={{ fill: totalColor, fontSize: 12, fontWeight: 800 }}>
         계: {formatMapNumber(total)}
       </text>
     </g>
@@ -399,6 +414,12 @@ export default function SejongMap({
     [project, visibleFeatures],
   );
   const shouldShowVoteCallouts = showVoteCallouts ?? !compact;
+  const isAreaDisabled = (areaId) => {
+    if (!onToggleArea || !areaId) return false;
+    const isSelected = selectedAreaIds.includes(areaId);
+    if (assignments?.[areaId] && !isSelected) return true;
+    return selectedAreaIds.length > 0 && !selectableAreaIds.includes(areaId) && !isSelected;
+  };
 
   const voteCallouts = useMemo(() => {
     if (!shouldShowVoteCallouts) return [];
@@ -419,6 +440,7 @@ export default function SejongMap({
         anchor: getCalloutAnchor(baseAnchor, label, mode),
         box: getCalloutBox(baseAnchor, label, mode, mapCenter, feature.properties.gameAreaId),
         votes: getAreaVotes(feature.properties.gameAreaId, electionDatasetId),
+        disabled: isAreaDisabled(feature.properties.gameAreaId),
       };
     });
 
@@ -434,7 +456,7 @@ export default function SejongMap({
     }
 
     return callouts;
-  }, [electionDatasetId, happyFeatures, mode, project, shouldShowVoteCallouts, visibleFeatures]);
+  }, [assignments, electionDatasetId, happyFeatures, mode, onToggleArea, project, selectableAreaIds, selectedAreaIds, shouldShowVoteCallouts, visibleFeatures]);
 
   useEffect(() => {
     setZoom(MIN_ZOOM);
@@ -646,7 +668,7 @@ export default function SejongMap({
           {visibleFeatures.map((feature) => {
             const style = getDistrictStyle(feature, assignments, selectedAreaIds, selectableAreaIds);
             const areaId = feature.properties.gameAreaId;
-            const disabled = onToggleArea && areaId && assignments?.[areaId] && !selectedAreaIds.includes(areaId);
+            const disabled = isAreaDisabled(areaId);
 
             return (
               <path
@@ -657,8 +679,16 @@ export default function SejongMap({
                 strokeWidth={style.strokeWidth}
                 opacity={disabled ? 0.62 : style.opacity}
                 vectorEffect="non-scaling-stroke"
-                className={onToggleArea || feature.properties.isHappyCity ? "cursor-pointer transition-opacity hover:opacity-80" : ""}
-                onClick={() => handleClick(feature)}
+                className={
+                  disabled
+                    ? "cursor-not-allowed transition-opacity"
+                    : onToggleArea || feature.properties.isHappyCity
+                      ? "cursor-pointer transition-opacity hover:opacity-80"
+                      : ""
+                }
+                onClick={() => {
+                  if (!disabled) handleClick(feature);
+                }}
               >
                 <title>
                   {feature.properties.name}
