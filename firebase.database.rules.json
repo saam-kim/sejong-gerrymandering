@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "games": {
+      "$pin": {
+        ".read": true,
+        "mission": {
+          ".write": true
+        },
+        "teams": {
+          "$teamId": {
+            ".write": true
+          }
+        },
+        "submissions": {
+          "$teamId": {
+            ".write": true,
+            ".validate": "newData.hasChildren(['teamId', 'teamName', 'assignments', 'seats', 'status'])"
+          }
+        }
+      }
+    }
+  }
+}

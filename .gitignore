@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+
+.tmp-py/
+tmp_umd/
+*.zip
+sejong_source.pdf
+sejong_page_*.png
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
