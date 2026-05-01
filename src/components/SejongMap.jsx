@@ -56,12 +56,12 @@ const HAPPY_CALLOUT_OFFSETS = {
   saerom: { x: -178, y: 164 },
   hansol: { x: -143, y: 233 },
   eojin: { x: 178, y: -258 },
-  naseong: { x: 328, y: 230 },
+  naseong: { x: 143, y: 53 },
   daepyeong: { x: 3, y: 255 },
   boram: { x: 120, y: 271 },
   sodam: { x: 302, y: 125 },
   bangok: { x: 287, y: 12 },
-  geumnam: { x: -124, y: 320 },
+  geumnam: { x: 122, y: 252 },
 };
 
 function featureRings(feature) {
