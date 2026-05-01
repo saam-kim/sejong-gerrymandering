@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AREA_BY_ID, DEFAULT_ELECTION_DATASET_ID, DISTRICT_THEME, getAreaVotes } from "../data/gerrymandering";
+import { AREA_BY_ID, DEFAULT_ELECTION_DATASET_ID, DISTRICT_THEME, getAreaVotes, getFeatureAreaId } from "../data/gerrymandering";
 import sejongBoundaries from "../data/sejongBoundaries";
 
 const VIEWBOX = { width: 900, height: 1120, padding: 34 };
@@ -25,17 +25,6 @@ const LABEL_OFFSETS = {
   금남면: { x: 0, y: 30 },
 };
 const CALLOUT_SIZE = { width: 112, height: 76 };
-const FEATURE_AREA_OVERRIDES = {
-  36110105: "hansol",
-  36110115: "haemil",
-  36110120: "haemil",
-  36110121: "haemil",
-  36110119: "naseong",
-  36110118: "bangok",
-  36110117: "bangok",
-  36110123: "bangok",
-  36110122: "bangok",
-};
 const OVERVIEW_CALLOUT_OFFSETS = {
   소정면: { x: 74, y: -50 },
   전의면: { x: -134, y: -8 },
@@ -133,10 +122,6 @@ function centerOfFeature(feature, project) {
 function centerOfFeatures(features, project) {
   const bounds = getBounds(features);
   return project([(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2]);
-}
-
-function getFeatureAreaId(feature) {
-  return FEATURE_AREA_OVERRIDES[feature.id] || feature.properties.gameAreaId || null;
 }
 
 function getFeatureGroupLabel(areaId) {

@@ -1,3 +1,5 @@
+import sejongBoundaries from "./sejongBoundaries.js";
+
 export const PARTIES = [
   { id: "DEM", name: "민주당", shortName: "민주", color: "#1B6BFF", soft: "#E6EEFF" },
   { id: "PPP", name: "국민의힘", shortName: "국힘", color: "#E34848", soft: "#FEECEC" },
@@ -63,7 +65,23 @@ const AREA_ORDER = [
   "bangok",
 ];
 
-const AREA_NEIGHBORS = {
+export const FEATURE_AREA_OVERRIDES = {
+  36110105: "hansol",
+  36110115: "haemil",
+  36110120: "haemil",
+  36110121: "haemil",
+  36110119: "naseong",
+  36110118: "bangok",
+  36110117: "bangok",
+  36110123: "bangok",
+  36110122: "bangok",
+};
+
+export function getFeatureAreaId(feature) {
+  return FEATURE_AREA_OVERRIDES[feature.id] || feature.properties.gameAreaId || null;
+}
+
+const BASE_AREA_NEIGHBORS = {
   sojeong: ["jeonui"],
   jeonui: ["sojeong", "jeondong", "yeonseo"],
   jeondong: ["jeonui", "yeonseo", "jochiwon"],
@@ -72,7 +90,7 @@ const AREA_NEIGHBORS = {
   yeondong: ["yeonseo", "geumnam", "bugang", "yeongi"],
   janggun: ["yeonseo", "goun", "geumnam", "dajeong", "saerom", "hansol", "yeongi"],
   yeongi: ["yeonseo", "goun", "yeondong", "janggun"],
-  haemil: ["dodam"],
+  haemil: ["areum", "dodam", "goun", "naseong", "bangok"],
   areum: ["goun", "dodam", "jongchon"],
   dodam: ["areum", "eojin", "jongchon", "haemil"],
   bugang: ["geumnam", "yeondong"],
@@ -87,8 +105,63 @@ const AREA_NEIGHBORS = {
   daepyeong: ["geumnam", "boram"],
   boram: ["geumnam", "daepyeong", "sodam"],
   sodam: ["geumnam", "bangok", "boram"],
-  bangok: ["geumnam", "sodam"],
+  bangok: ["haemil", "geumnam", "sodam"],
 };
+
+function featureRings(feature) {
+  if (!feature.geometry) return [];
+  if (feature.geometry.type === "Polygon") return feature.geometry.coordinates;
+  if (feature.geometry.type === "MultiPolygon") return feature.geometry.coordinates.flat();
+  return [];
+}
+
+function pointKey(point) {
+  return `${point[0].toFixed(6)},${point[1].toFixed(6)}`;
+}
+
+function segmentKey(a, b) {
+  const from = pointKey(a);
+  const to = pointKey(b);
+  return from < to ? `${from}|${to}` : `${to}|${from}`;
+}
+
+function featureSegments(feature) {
+  return featureRings(feature).flatMap((ring) =>
+    ring.slice(0, -1).map((point, index) => segmentKey(point, ring[index + 1])),
+  );
+}
+
+function buildBoundaryNeighbors() {
+  const segmentOwners = new Map();
+  for (const feature of sejongBoundaries.features) {
+    const areaId = getFeatureAreaId(feature);
+    if (!areaId) continue;
+    for (const segment of featureSegments(feature)) {
+      if (!segmentOwners.has(segment)) segmentOwners.set(segment, new Set());
+      segmentOwners.get(segment).add(areaId);
+    }
+  }
+
+  const neighbors = Object.fromEntries(AREA_ORDER.map((areaId) => [areaId, new Set(BASE_AREA_NEIGHBORS[areaId] || [])]));
+  for (const areaIds of segmentOwners.values()) {
+    const ids = [...areaIds];
+    if (ids.length < 2) continue;
+    for (const areaId of ids) {
+      for (const neighborId of ids) {
+        if (areaId !== neighborId) neighbors[areaId]?.add(neighborId);
+      }
+    }
+  }
+
+  return Object.fromEntries(
+    AREA_ORDER.map((areaId) => [
+      areaId,
+      [...(neighbors[areaId] || [])].sort((a, b) => AREA_ORDER.indexOf(a) - AREA_ORDER.indexOf(b)),
+    ]),
+  );
+}
+
+const AREA_NEIGHBORS = buildBoundaryNeighbors();
 
 const AREA_INFO = {
   sojeong: ["소정면", 2800, 920, 1180],
