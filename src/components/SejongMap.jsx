@@ -293,17 +293,17 @@ function VoteCallout({ anchor, box, label, votes }) {
         x2={box.center[0]}
         y2={box.center[1]}
         stroke="#111827"
-        strokeWidth="4"
+        strokeWidth="2.67"
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"
       />
       <circle
         cx={anchor[0]}
         cy={anchor[1]}
-        r="15"
+        r="5"
         fill="#FFFFFF"
         stroke="#111827"
-        strokeWidth="4"
+        strokeWidth="2.67"
         vectorEffect="non-scaling-stroke"
       />
       <rect
