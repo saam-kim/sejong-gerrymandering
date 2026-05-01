@@ -13,7 +13,7 @@ export const DEFAULT_MISSION_TYPE = "target_seats";
 export const MISSION_TYPES = {
   target_seats: {
     id: "target_seats",
-    name: "목표 의석수 맞추기",
+    name: "목표 의석 수 맞추기",
     description: "교사가 제시한 민주당/국민의힘 의석수 조합을 정확히 만듭니다.",
   },
   min_proportionality: {

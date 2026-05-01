@@ -5,7 +5,6 @@ import {
   DEFAULT_MISSION_TYPE,
   DISTRICT_THEME,
   DISTRICTS,
-  ELECTION_DATASETS,
   MISSION_TYPES,
   PARTIES,
   PARTY_IDS,
@@ -102,7 +101,6 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
   const normalizedAssignments = useMemo(() => normalizeAssignments(assignments), [assignments]);
   const electionDatasetId = mission?.electionDatasetId || DEFAULT_ELECTION_DATASET_ID;
   const missionType = mission?.missionType || DEFAULT_MISSION_TYPE;
-  const electionDataset = ELECTION_DATASETS[electionDatasetId] || ELECTION_DATASETS[DEFAULT_ELECTION_DATASET_ID];
   const missionConfig = MISSION_TYPES[missionType] || MISSION_TYPES[DEFAULT_MISSION_TYPE];
   const evaluation = useMemo(
     () => validatePlan(normalizedAssignments, mission?.target_seats, { electionId: electionDatasetId, missionType }),
@@ -242,12 +240,22 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
                 <span className="bo-pill px-3 py-1 text-sm">점수 {evaluation.finalScore}</span>
               </div>
             </div>
-            <div className="bo-pill px-3 py-2 text-sm">
-              {electionDataset.name} · {missionConfig.name}
-              {missionType === "target_seats"
-                ? `: 민주 ${mission?.target_seats?.DEM ?? 3}석, 국힘 ${mission?.target_seats?.PPP ?? 2}석`
-                : ""}
+            <div className="flex flex-wrap justify-end gap-2">
+              <span className="bo-pill px-3 py-2 text-sm">미션: {missionConfig.name}</span>
+              {missionType === "target_seats" ? (
+                <span className="bo-pill px-3 py-2 text-sm">
+                  민주 {mission?.target_seats?.DEM ?? 3}석, 국힘 {mission?.target_seats?.PPP ?? 2}석
+                </span>
+              ) : null}
             </div>
+          </div>
+          <div className="mt-3 grid gap-2 text-xs font-bold leading-5 text-[var(--color-brand-ink)] md:grid-cols-2">
+            <p className="rounded-lg bg-white/70 px-3 py-2">
+              선거구 원칙: 모든 지역을 배정하고, 각 선거구는 서로 붙어 있어야 하며, 인구는 권장 범위 안에 들어와야 합니다.
+            </p>
+            <p className="rounded-lg bg-white/70 px-3 py-2">
+              점수: 미션 달성도와 의석 왜곡 효과를 반영하고, 인구 편차 초과와 과도한 몰아주기는 감점됩니다.
+            </p>
           </div>
         </section>
 

@@ -158,27 +158,42 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
 
   return (
     <main className="bo-page">
-      <section className="mx-auto grid max-w-7xl gap-4 px-5 py-5 xl:grid-cols-[390px_1fr]">
-        <aside className="flex flex-col gap-4">
-          <section className="rounded-xl bg-[var(--color-brand-ink)] p-5 text-white shadow-[var(--shadow-md)]">
-            <p className="text-xs font-extrabold tracking-[0.08em] text-blue-100">CURRENT ROUND</p>
-            <h1 className="mt-2 text-3xl font-black leading-tight">
-              세종시 게리맨더링 시뮬레이션
-            </h1>
-            <p className="mt-3 text-sm font-bold leading-6 text-blue-100">
-              모든 읍·면·동을 {RECOMMENDED_DISTRICT_COUNT}개 선거구에 배정하고, 각 선거구는 반드시 인접한 하나의 영역이어야 합니다.
-            </p>
-            <div className="mt-4">
-              <MissionSeats targetSeats={mission?.target_seats || targetSeats} missionType={selectedMissionType} />
+      <section className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-5">
+        <section className="rounded-xl bg-[var(--color-brand-ink)] p-5 text-white shadow-[var(--shadow-md)]">
+          <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+            <div>
+              <p className="text-xs font-extrabold tracking-[0.08em] text-blue-100">TEACHER DASHBOARD</p>
+              <h1 className="mt-2 whitespace-nowrap text-[clamp(1.65rem,3vw,2.75rem)] font-black leading-none">
+                세종시 게리맨더링 시뮬레이션
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-blue-100">
+                모든 읍·면·동을 {RECOMMENDED_DISTRICT_COUNT}개 선거구에 배정하고, 각 선거구는 반드시 인접한 하나의 영역이어야 합니다.
+              </p>
             </div>
-            <p className="mt-3 rounded-lg bg-white/10 px-3 py-2 text-sm font-black text-blue-50">
-              데이터: {selectedElectionDataset.name} ({selectedElectionDataset.sourceLabel})
-            </p>
-            <p className="mt-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-black text-blue-50">
-              미션: {selectedMissionConfig.description}
-            </p>
-          </section>
+            <div className="rounded-xl bg-white p-4 text-[var(--color-brand-ink)] shadow-sm">
+              <p className="text-sm font-black text-[var(--color-text-muted)]">학생 입장 PIN</p>
+              <p className="mt-1 text-center text-5xl font-black tracking-[0.16em]">{pin}</p>
+              <p className="mt-2 text-center text-xs font-extrabold text-[var(--color-text-muted)]">학생 태블릿 첫 화면에 입력</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr]">
+            <div className="rounded-lg bg-white/10 px-4 py-3">
+              <p className="text-xs font-black text-blue-100">현재 미션</p>
+              <p className="mt-1 text-lg font-black">미션: {selectedMissionConfig.name}</p>
+              <div className="mt-2">
+                <MissionSeats targetSeats={mission?.target_seats || targetSeats} missionType={selectedMissionType} />
+              </div>
+            </div>
+            <div className="rounded-lg bg-white/10 px-4 py-3">
+              <p className="text-xs font-black text-blue-100">수업용 데이터</p>
+              <p className="mt-1 text-lg font-black">{selectedElectionDataset.name}</p>
+              <p className="mt-1 text-sm font-bold text-blue-100">{selectedMissionConfig.description}</p>
+            </div>
+          </div>
+        </section>
 
+        <section className="grid gap-4 xl:grid-cols-[430px_1fr]">
+        <aside className="flex flex-col gap-4">
           <section className="bo-card p-4">
             <p className="bo-label">MISSION CONTROL</p>
             <h2 className="bo-heading mt-1 text-xl">미션 설정</h2>
@@ -331,6 +346,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
         <section className="grid gap-4 2xl:grid-cols-2">
           <ReviewMap title="TEAM MAP" submission={selectedSubmission} />
           <ReviewMap title="COMPARE MAP" submission={compareSubmission} />
+        </section>
         </section>
       </section>
     </main>
