@@ -65,13 +65,13 @@ const AREA_ORDER = [
 
 const AREA_NEIGHBORS = {
   sojeong: ["jeonui"],
-  jeonui: ["sojeong", "jeondong"],
+  jeonui: ["sojeong", "jeondong", "yeonseo"],
   jeondong: ["jeonui", "yeonseo", "jochiwon"],
-  yeonseo: ["jeondong", "jochiwon"],
+  yeonseo: ["jeonui", "jeondong", "jochiwon", "yeongi", "janggun", "yeondong"],
   jochiwon: ["yeonseo", "jeondong"],
-  yeondong: ["geumnam", "bugang", "yeongi"],
-  janggun: ["goun", "geumnam", "dajeong", "saerom", "yeongi"],
-  yeongi: ["goun", "yeondong", "janggun"],
+  yeondong: ["yeonseo", "geumnam", "bugang", "yeongi"],
+  janggun: ["yeonseo", "goun", "geumnam", "dajeong", "saerom", "yeongi"],
+  yeongi: ["yeonseo", "goun", "yeondong", "janggun"],
   haemil: ["dodam"],
   areum: ["goun", "dodam", "jongchon"],
   dodam: ["areum", "eojin", "jongchon", "haemil"],
