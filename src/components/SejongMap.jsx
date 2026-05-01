@@ -57,12 +57,12 @@ const HAPPY_CALLOUT_OFFSETS = {
   yeongi: { x: -184, y: -140 },
   yeondong: { x: 120, y: -129 },
   bugang: { x: 93, y: -54 },
-  janggun: { x: -132, y: -7 },
+  janggun: { x: -236, y: 6 },
   goun: { x: -183, y: -109 },
-  areum: { x: -209, y: -18 },
+  areum: { x: -105, y: -84 },
   haemil: { x: -97, y: -198 },
   dodam: { x: 56, y: -231 },
-  jongchon: { x: -204, y: 35 },
+  jongchon: { x: -226, y: 108 },
   dajeong: { x: -194, y: 99 },
   saerom: { x: -178, y: 164 },
   hansol: { x: -143, y: 233 },
@@ -72,7 +72,7 @@ const HAPPY_CALLOUT_OFFSETS = {
   boram: { x: 120, y: 271 },
   sodam: { x: 302, y: 125 },
   bangok: { x: 287, y: 12 },
-  geumnam: { x: 122, y: 252 },
+  geumnam: { x: 254, y: 336 },
 };
 
 function featureRings(feature) {
