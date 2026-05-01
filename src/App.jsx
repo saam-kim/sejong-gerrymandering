@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import StudentMap from "./components/StudentMap";
 import TeacherBoard from "./components/TeacherBoard";
 
+const TEACHER_PIN = "1234";
+const TEACHER_ACCESS_KEY = "gerrymanderingTeacherAccess";
+
 function generatePin() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -9,6 +12,22 @@ function generatePin() {
 function navigateTo(path) {
   window.location.hash = path;
   window.dispatchEvent(new HashChangeEvent("hashchange"));
+}
+
+function hasTeacherAccess() {
+  try {
+    return window.sessionStorage.getItem(TEACHER_ACCESS_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function grantTeacherAccess() {
+  try {
+    window.sessionStorage.setItem(TEACHER_ACCESS_KEY, "true");
+  } catch {
+    // If session storage is blocked, the PIN screen will appear again on reload.
+  }
 }
 
 function useRoute() {
@@ -56,8 +75,16 @@ function makeTeamId(teamName) {
 function Home() {
   const [studentPin, setStudentPin] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [teacherPin, setTeacherPin] = useState("");
+  const [teacherPinError, setTeacherPinError] = useState("");
 
   function createTeacherRoom() {
+    if (teacherPin !== TEACHER_PIN) {
+      setTeacherPinError("교사용 PIN을 확인해 주세요.");
+      return;
+    }
+
+    grantTeacherAccess();
     navigateTo(`/teacher/${generatePin()}`);
   }
 
@@ -94,6 +121,21 @@ function Home() {
               교사용 방 만들기
             </button>
           </div>
+          <label className="mt-5 grid max-w-md gap-2 text-sm font-extrabold text-[var(--color-text-muted)]">
+            교사용 PIN
+            <input
+              inputMode="numeric"
+              maxLength={4}
+              value={teacherPin}
+              onChange={(event) => {
+                setTeacherPin(event.target.value.replace(/\D/g, "").slice(0, 4));
+                setTeacherPinError("");
+              }}
+              className="bo-input h-[70px] px-4 text-2xl font-black tracking-wide"
+              placeholder="교사용 PIN 4자리"
+            />
+            {teacherPinError ? <span className="text-sm font-black text-red-500">{teacherPinError}</span> : null}
+          </label>
         </div>
 
         <form onSubmit={joinStudentRoom} className="bo-card self-center p-5">
@@ -132,6 +174,61 @@ function Home() {
   );
 }
 
+function TeacherLock({ pin }) {
+  const [teacherPin, setTeacherPin] = useState("");
+  const [teacherPinError, setTeacherPinError] = useState("");
+
+  function unlockTeacherRoom(event) {
+    event.preventDefault();
+    if (teacherPin !== TEACHER_PIN) {
+      setTeacherPinError("교사용 PIN을 확인해 주세요.");
+      return;
+    }
+
+    grantTeacherAccess();
+    navigateTo(`/teacher/${pin}`);
+  }
+
+  return (
+    <main className="bo-page flex min-h-screen items-center justify-center p-5">
+      <form onSubmit={unlockTeacherRoom} className="bo-card w-full max-w-md p-6">
+        <p className="bo-label">TEACHER ACCESS</p>
+        <h1 className="bo-heading mt-2 text-2xl">교사용 대시보드 잠금</h1>
+        <label className="mt-6 grid gap-2 text-sm font-extrabold text-[var(--color-text-muted)]">
+          교사용 PIN
+          <input
+            inputMode="numeric"
+            maxLength={4}
+            value={teacherPin}
+            onChange={(event) => {
+              setTeacherPin(event.target.value.replace(/\D/g, "").slice(0, 4));
+              setTeacherPinError("");
+            }}
+            className="bo-input h-[70px] px-4 text-2xl font-black tracking-wide"
+            placeholder="교사용 PIN 4자리"
+            autoFocus
+          />
+        </label>
+        {teacherPinError ? <p className="mt-3 text-sm font-black text-red-500">{teacherPinError}</p> : null}
+        <button
+          type="submit"
+          disabled={teacherPin.length !== 4}
+          className="bo-button-primary mt-5 w-full px-4 py-3 text-base"
+        >
+          대시보드 들어가기
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateTo("/")}
+          className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-[var(--color-brand-ink)]"
+        >
+          처음으로
+        </button>
+      </form>
+    </main>
+  );
+}
+
 function NotFound() {
   return (
     <main className="bo-page flex items-center justify-center p-5">
@@ -156,6 +253,7 @@ export default function App() {
   if (route.segments.length === 0) return <Home />;
 
   if (role === "teacher" && pin) {
+    if (!hasTeacherAccess()) return <TeacherLock pin={pin} />;
     return <TeacherBoard key={`teacher-${pin}`} pin={pin} />;
   }
 
