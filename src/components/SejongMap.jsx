@@ -46,22 +46,28 @@ const HAPPY_CALLOUT_OFFSETS = {
   yeongi: { x: -184, y: -140 },
   yeondong: { x: 120, y: -129 },
   bugang: { x: 93, y: -54 },
-  janggun: { x: -236, y: 6 },
+  janggun: { x: -236, y: -48 },
   goun: { x: -183, y: -109 },
   areum: { x: -105, y: -84 },
   haemil: { x: -97, y: -198 },
   dodam: { x: 56, y: -231 },
-  jongchon: { x: -232, y: 36 },
+  jongchon: { x: -232, y: 82 },
   dajeong: { x: -194, y: 142 },
-  saerom: { x: -178, y: 164 },
-  hansol: { x: -143, y: 233 },
+  saerom: { x: -110, y: 230 },
+  hansol: { x: -80, y: 305 },
   eojin: { x: 178, y: -258 },
-  naseong: { x: 143, y: 53 },
+  naseong: { x: 218, y: 68 },
   daepyeong: { x: 3, y: 255 },
   boram: { x: 120, y: 271 },
   sodam: { x: 302, y: 125 },
   bangok: { x: 287, y: 12 },
   geumnam: { x: 254, y: 336 },
+};
+const HAPPY_CALLOUT_ANCHOR_FEATURE_IDS = {
+  bangok: new Set(["36110118"]),
+};
+const HAPPY_CALLOUT_ANCHOR_OFFSETS = {
+  bangok: { x: -30, y: 60 },
 };
 
 function featureRings(feature) {
@@ -200,8 +206,9 @@ function getCalloutBox(anchor, featureName, mode, mapCenter, featureKey = featur
   };
 }
 
-function getCalloutAnchor(baseAnchor, featureName, mode) {
-  const offset = mode === "overview" ? OVERVIEW_CALLOUT_ANCHOR_OFFSETS[featureName] : null;
+function getCalloutAnchor(baseAnchor, featureName, mode, featureKey = featureName) {
+  const offset =
+    mode === "overview" ? OVERVIEW_CALLOUT_ANCHOR_OFFSETS[featureName] : HAPPY_CALLOUT_ANCHOR_OFFSETS[featureKey];
   if (!offset) return baseAnchor;
 
   return [baseAnchor[0] + offset.x, baseAnchor[1] + offset.y];
@@ -404,6 +411,10 @@ export default function SejongMap({
     () => visibleFeatures.filter((feature) => feature.properties.isHappyCity),
     [visibleFeatures],
   );
+  const featureById = useMemo(
+    () => new Map(visibleFeatures.map((feature) => [String(feature.id), feature])),
+    [visibleFeatures],
+  );
 
   const overviewLabels = useMemo(() => {
     const labels = sejongBoundaries.features
@@ -452,12 +463,14 @@ export default function SejongMap({
         : visibleFeatures.filter((feature) => getFeatureAreaId(feature));
 
     const callouts = Array.from(groupFeaturesByArea(calloutFeatures).entries()).map(([areaId, features]) => {
-      const baseAnchor = centerOfFeatures(features, project);
+      const anchorFeatureIds = mode === "detail" ? HAPPY_CALLOUT_ANCHOR_FEATURE_IDS[areaId] : null;
+      const anchorFeatures = anchorFeatureIds ? features.filter((feature) => anchorFeatureIds.has(String(feature.id))) : features;
+      const baseAnchor = centerOfFeatures(anchorFeatures.length > 0 ? anchorFeatures : features, project);
       const label = getFeatureGroupLabel(areaId);
       return {
         key: areaId,
         label,
-        anchor: getCalloutAnchor(baseAnchor, label, mode),
+        anchor: getCalloutAnchor(baseAnchor, label, mode, areaId),
         box: getCalloutBox(baseAnchor, label, mode, mapCenter, areaId),
         votes: getAreaVotes(areaId, electionDatasetId),
         disabled: isAreaDisabled(areaId),
@@ -519,6 +532,14 @@ export default function SejongMap({
     setDragStart(null);
   }
 
+  function getPointerFeatureId(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return null;
+    const featureNode = target.closest("[data-feature-id]");
+    if (!featureNode || !mapRef.current?.contains(featureNode)) return null;
+    return featureNode.getAttribute("data-feature-id");
+  }
+
   function handlePointerDown(event) {
     if (event.button !== 0) return;
     if (zoom <= MIN_ZOOM) return;
@@ -531,6 +552,7 @@ export default function SejongMap({
       clientX: event.clientX,
       clientY: event.clientY,
       pan,
+      featureId: getPointerFeatureId(event),
     });
   }
 
@@ -555,11 +577,20 @@ export default function SejongMap({
       event.preventDefault();
       event.stopPropagation();
     }
+    const clickedFeature = dragStart?.featureId ? featureById.get(String(dragStart.featureId)) : null;
+    const clickedAreaId = clickedFeature ? getFeatureAreaId(clickedFeature) : null;
+    const clickedDisabled = clickedAreaId ? isAreaDisabled(clickedAreaId) : false;
+
     try {
       event.currentTarget.releasePointerCapture?.(event.pointerId);
     } catch {
       // Pointer capture can already be released by the browser when the pointer leaves the SVG.
     }
+
+    if (dragStart && !dragMovedRef.current && clickedFeature && !clickedDisabled) {
+      handleClick(clickedFeature);
+    }
+
     setDragStart(null);
   }
 
@@ -707,8 +738,10 @@ export default function SejongMap({
                       : ""
                 }
                 onClick={() => {
+                  if (zoom > MIN_ZOOM) return;
                   if (!disabled) handleClick(feature);
                 }}
+                data-feature-id={feature.id}
               >
                 <title>
                   {feature.properties.name}

@@ -83,16 +83,52 @@ function normalizeSubmission(value, key) {
     expectedSeats: value.expectedSeats || { DEM: 0, PPP: 0 },
     score: value.score ?? value.finalScore ?? 0,
     finalScore: value.finalScore ?? value.score ?? 0,
+    missionScore: value.missionScore ?? 0,
+    missionRank: value.missionRank ?? null,
+    distortionScore: value.distortionScore ?? 0,
+    proportionalityScore: value.proportionalityScore ?? 0,
     advantagedParty: value.advantagedParty || null,
     districtResults: value.districtResults || [],
     violations: value.violations || { population: 0, packing: 0 },
     electionDatasetId: value.electionDatasetId || DEFAULT_ELECTION_DATASET_ID,
     missionType: value.missionType || DEFAULT_MISSION_TYPE,
     status: value.status || "in_progress",
+    isValid: Boolean(value.isValid),
     missionSuccess: Boolean(value.missionSuccess),
     updatedAt: value.updatedAt || null,
     submittedAt: value.submittedAt || null,
   };
+}
+
+function getMissionSuccess(assignmentsEvaluation, missionType, targetSeats) {
+  if (!assignmentsEvaluation.canSubmit) return false;
+  if (missionType === "target_seats") return seatsMatchTarget(assignmentsEvaluation.seats, targetSeats);
+  return true;
+}
+
+function getSubmissionTime(entry) {
+  return Number(entry.submittedAt || entry.updatedAt || 0);
+}
+
+function isScoreEligible(entry, missionType) {
+  if (missionType === "target_seats") return entry.status === "mission_success" || entry.missionSuccess;
+  return (entry.status === "mission_success" || entry.status === "submitted") && entry.isValid;
+}
+
+function sortScoreEligibleEntries(entries, missionType) {
+  return [...entries].sort((left, right) => {
+    if (missionType === "min_proportionality") {
+      const distortionDiff = Number(right.distortionScore || 0) - Number(left.distortionScore || 0);
+      if (distortionDiff !== 0) return distortionDiff;
+    }
+
+    if (missionType === "max_proportionality") {
+      const proportionalityDiff = Number(right.proportionalityScore || 0) - Number(left.proportionalityScore || 0);
+      if (proportionalityDiff !== 0) return proportionalityDiff;
+    }
+
+    return getSubmissionTime(left) - getSubmissionTime(right);
+  });
 }
 
 export function useGerrymandering({
@@ -181,6 +217,8 @@ export function useGerrymandering({
         expectedSeats: evaluation.expectedSeats,
         score: evaluation.finalScore,
         finalScore: evaluation.finalScore,
+        distortionScore: evaluation.distortionScore,
+        proportionalityScore: evaluation.proportionalityScore,
         advantagedParty: evaluation.advantagedParty,
         districtResults: evaluation.districtResults,
         violations: {
@@ -210,7 +248,7 @@ export function useGerrymandering({
       const evaluation = validatePlan(assignments, mission?.target_seats, { electionId: electionDatasetId, missionType });
       if (!evaluation.canSubmit) return evaluation;
 
-      const missionSuccess = missionType === "target_seats" && seatsMatchTarget(evaluation.seats, mission?.target_seats);
+      const missionSuccess = getMissionSuccess(evaluation, missionType, mission?.target_seats);
 
       await set(ref(database, gamePath(pin, `submissions/${teamId}`)), {
         teamId,
@@ -220,6 +258,8 @@ export function useGerrymandering({
         expectedSeats: evaluation.expectedSeats,
         score: evaluation.finalScore,
         finalScore: evaluation.finalScore,
+        distortionScore: evaluation.distortionScore,
+        proportionalityScore: evaluation.proportionalityScore,
         advantagedParty: evaluation.advantagedParty,
         districtResults: evaluation.districtResults,
         violations: {
@@ -294,16 +334,36 @@ export function useGerrymandering({
       in_progress: 4,
     };
 
-    return Object.entries(submissions)
-      .map(([key, value]) => normalizeSubmission(value, key))
+    const missionType = mission?.missionType || DEFAULT_MISSION_TYPE;
+    const normalizedEntries = Object.entries(submissions).map(([key, value]) => normalizeSubmission(value, key));
+    const eligibleEntries = sortScoreEligibleEntries(
+      normalizedEntries.filter((entry) => isScoreEligible(entry, missionType)),
+      missionType,
+    );
+    const scoreByTeamId = new Map(
+      eligibleEntries.map((entry, index) => [
+        entry.teamId,
+        {
+          missionRank: index + 1,
+          missionScore: eligibleEntries.length - index,
+        },
+      ]),
+    );
+
+    return normalizedEntries
+      .map((entry) => ({
+        ...entry,
+        missionRank: scoreByTeamId.get(entry.teamId)?.missionRank ?? null,
+        missionScore: scoreByTeamId.get(entry.teamId)?.missionScore ?? 0,
+      }))
       .sort((left, right) => {
+        const missionScoreDiff = Number(right.missionScore || 0) - Number(left.missionScore || 0);
+        if (missionScoreDiff !== 0) return missionScoreDiff;
         const rankDiff = (statusRank[left.status] ?? 9) - (statusRank[right.status] ?? 9);
         if (rankDiff !== 0) return rankDiff;
-        const scoreDiff = Number(right.finalScore || 0) - Number(left.finalScore || 0);
-        if (scoreDiff !== 0) return scoreDiff;
         return Number(left.submittedAt || left.updatedAt || 0) - Number(right.submittedAt || right.updatedAt || 0);
       });
-  }, [submissions]);
+  }, [mission?.missionType, submissions]);
 
   return {
     db: database,

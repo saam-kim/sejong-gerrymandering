@@ -52,7 +52,7 @@ function readStoredFirebaseConfig() {
 function extractFirebaseConfig(rawText) {
   const keys = ["apiKey", "authDomain", "databaseURL", "projectId", "storageBucket", "messagingSenderId", "appId"];
   return keys.reduce((config, key) => {
-    const match = rawText.match(new RegExp(`${key}\\s*:\\s*["']([^"']*)["']`));
+    const match = rawText.match(new RegExp(`["']?${key}["']?\\s*:\\s*["']([^"']*)["']`));
     config[key] = match?.[1]?.trim() || "";
     return config;
   }, {});

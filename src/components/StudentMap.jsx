@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AREA_BY_ID,
   DEFAULT_ELECTION_DATASET_ID,
@@ -56,6 +56,82 @@ function ResultChip({ partyId, value }) {
   );
 }
 
+function getSubmitHints(evaluation) {
+  const hints = [];
+
+  if (evaluation.unassignedAreaIds.length > 0) {
+    hints.push(`미배정 지역 ${evaluation.unassignedAreaIds.length}개를 선거구에 포함해야 합니다.`);
+  }
+  if (evaluation.emptyDistricts.length > 0) {
+    hints.push(`비어 있는 선거구 ${evaluation.emptyDistricts.join(", ")}구가 있습니다.`);
+  }
+  if (evaluation.contiguity.errors.length > 0) {
+    hints.push(...evaluation.contiguity.errors);
+  }
+  if (evaluation.populationViolations.length > 0) {
+    hints.push(`인구 권장 범위를 벗어난 선거구 ${evaluation.populationViolations.length}개는 감점됩니다.`);
+  }
+  if (evaluation.packingViolations.length > 0) {
+    hints.push(`한 정당이 75% 이상 몰린 선거구 ${evaluation.packingViolations.length}개는 packing 감점입니다.`);
+  }
+  if (hints.length === 0) {
+    hints.push("모든 지역이 연결된 선거구로 배정되어 제출할 수 있습니다.");
+  }
+
+  return hints;
+}
+
+function ProportionalityPanel({ evaluation }) {
+  const totalSeats = DISTRICTS.length;
+
+  return (
+    <section className="bo-card p-4">
+      <div className="border-l-4 border-[var(--color-brand)] pl-3">
+        <h2 className="bo-heading text-lg">결과 해설</h2>
+      </div>
+      <p className="mt-2 text-xs font-bold leading-5 text-[var(--color-text-muted)]">
+        전체 득표율이 기대 의석이고, 실제 의석과의 차이가 의석 왜곡입니다. 같은 표라도 선거구를 어떻게 묶는지에 따라 의석률이 달라집니다.
+      </p>
+      <div className="mt-3 grid gap-3">
+        {PARTIES.map((party) => {
+          const voteShare = (evaluation.expectedSeats[party.id] || 0) / totalSeats;
+          const seatShare = (evaluation.seats[party.id] || 0) / totalSeats;
+          const distortion = (evaluation.distortionByParty[party.id] || 0).toFixed(2);
+
+          return (
+            <div key={party.id} className="rounded-lg bg-[var(--color-bg-soft)] p-3">
+              <div className="flex items-center justify-between gap-2 text-xs font-black">
+                <span style={{ color: party.color }}>{party.name}</span>
+                <span className="text-[var(--color-text-muted)]">왜곡 {distortion}석</span>
+              </div>
+              <div className="mt-2 grid gap-1">
+                <div>
+                  <div className="flex justify-between text-[11px] font-bold text-[var(--color-text-muted)]">
+                    <span>득표율</span>
+                    <span>{formatPercent(voteShare)}</span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, voteShare * 100)}%`, backgroundColor: party.color }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] font-bold text-[var(--color-text-muted)]">
+                    <span>의석률</span>
+                    <span>{formatPercent(seatShare)}</span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full opacity-70" style={{ width: `${Math.min(100, seatShare * 100)}%`, backgroundColor: party.color }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 const HAPPY_CITY_AREA_IDS = new Set([
   "haemil",
   "areum",
@@ -84,14 +160,68 @@ const AREA_GROUPS = [
   },
 ];
 
+const STUDENT_DRAFT_STORAGE_PREFIX = "gerrymanderingStudentDraft";
+
+function getStudentDraftStorageKey(pin, teamId) {
+  return `${STUDENT_DRAFT_STORAGE_PREFIX}:${pin || "no-pin"}:${teamId || "no-team"}`;
+}
+
+function hasAnyAssignment(assignments) {
+  return Object.values(assignments || {}).some(Boolean);
+}
+
+function assignmentsEqual(left, right) {
+  const normalizedLeft = normalizeAssignments(left);
+  const normalizedRight = normalizeAssignments(right);
+  return SEJONG_AREAS.every((area) => normalizedLeft[area.id] === normalizedRight[area.id]);
+}
+
+function readStoredAssignments(pin, teamId) {
+  if (typeof window === "undefined") return getEmptyAssignments();
+
+  try {
+    const raw = window.localStorage.getItem(getStudentDraftStorageKey(pin, teamId));
+    if (!raw) return getEmptyAssignments();
+    const parsed = JSON.parse(raw);
+    return normalizeAssignments(parsed?.assignments || parsed || getEmptyAssignments());
+  } catch {
+    return getEmptyAssignments();
+  }
+}
+
+function readStoredDraft(pin, teamId) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(getStudentDraftStorageKey(pin, teamId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredAssignments(pin, teamId, assignments, missionStartedAt = null) {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(
+    getStudentDraftStorageKey(pin, teamId),
+    JSON.stringify({
+      assignments: normalizeAssignments(assignments),
+      missionStartedAt,
+      savedAt: Date.now(),
+    }),
+  );
+}
+
 export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db }) {
-  const [assignments, setAssignments] = useState(() => getEmptyAssignments());
+  const [assignments, setAssignments] = useState(() => readStoredAssignments(pin, teamId));
   const [selectedAreaIds, setSelectedAreaIds] = useState([]);
   const [activeDistrict, setActiveDistrict] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(Date.now());
-  const { mission, updateDraft, submitPlan, error } = useGerrymandering({
+  const remoteDraftRestoredRef = useRef(false);
+  const { db: connectedDb, mission, submissions, updateDraft, submitPlan, error } = useGerrymandering({
     pin,
     teamId,
     teamName,
@@ -114,11 +244,52 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
   const remainingTime = mission?.endsAt ? mission.endsAt - now : null;
   const populationRange = getPopulationRange(DISTRICTS.length);
   const selectedPopulation = selectedAreaIds.reduce((sum, areaId) => sum + AREA_BY_ID[areaId].population, 0);
+  const submitHints = useMemo(() => getSubmitHints(evaluation), [evaluation]);
+  const missionStartedAt = mission?.startedAtClient || null;
+  const currentSubmission = submissions?.[teamId] || null;
+  const isSubmitted = currentSubmission?.status === "submitted" || currentSubmission?.status === "mission_success";
+  const submittedMatchesCurrent = isSubmitted && assignmentsEqual(normalizedAssignments, currentSubmission.assignments);
+  const submitDisabled = !evaluation.canSubmit || submitting || submittedMatchesCurrent;
+  const submitLabel = submitting
+    ? "저장 중"
+    : submittedMatchesCurrent
+      ? "제출 완료"
+      : isSubmitted
+        ? "다시 제출하기"
+        : "최종 제출하기";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!missionStartedAt) return;
+    const storedDraft = readStoredDraft(pin, teamId);
+    if (!storedDraft || storedDraft.missionStartedAt === missionStartedAt) return;
+
+    setAssignments(getEmptyAssignments());
+    setSelectedAreaIds([]);
+    setMessage("새 라운드가 시작되어 이전 선거구 배정을 초기화했습니다.");
+  }, [missionStartedAt, pin, teamId]);
+
+  useEffect(() => {
+    if (!missionStartedAt && connectedDb) return;
+    if (missionStartedAt) {
+      const storedDraft = readStoredDraft(pin, teamId);
+      if (storedDraft?.missionStartedAt && storedDraft.missionStartedAt !== missionStartedAt) return;
+    }
+    writeStoredAssignments(pin, teamId, normalizedAssignments, missionStartedAt);
+  }, [missionStartedAt, normalizedAssignments, pin, teamId]);
+
+  useEffect(() => {
+    if (remoteDraftRestoredRef.current) return;
+    const remoteAssignments = submissions?.[teamId]?.assignments;
+    if (!remoteAssignments || !hasAnyAssignment(remoteAssignments)) return;
+
+    remoteDraftRestoredRef.current = true;
+    setAssignments((current) => (hasAnyAssignment(current) ? current : normalizeAssignments(remoteAssignments)));
+  }, [submissions, teamId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -199,11 +370,13 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
     setMessage("");
 
     try {
-      const result = await submitPlan(normalizedAssignments);
+      const result = connectedDb ? await submitPlan(normalizedAssignments) : { ...evaluation, missionSuccess: evaluation.missionSuccess };
       if (!result?.canSubmit) {
         setMessage(result?.errors?.[0] || "모든 읍·면·동을 연결된 선거구에 배정해야 합니다.");
       } else if (result.missionSuccess) {
         setMessage("미션 성공! 결과가 저장되었습니다.");
+      } else if (!connectedDb) {
+        setMessage("로컬 데모 제출 완료. Firebase를 연결하면 교사 대시보드에 실시간 저장됩니다.");
       } else {
         setMessage("결과를 저장했습니다. 교사용 화면에서 비교할 수 있습니다.");
       }
@@ -232,12 +405,12 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
         <section className="bo-callout-blue p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-extrabold">현재 예상 의석과 왜곡 점수</p>
+              <p className="text-sm font-extrabold">현재 예상 의석과 결과 지표</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {PARTY_IDS.map((partyId) => (
                   <ResultChip key={partyId} partyId={partyId} value={evaluation.seats[partyId]} />
                 ))}
-                <span className="bo-pill px-3 py-1 text-sm">점수 {evaluation.finalScore}</span>
+                <span className="bo-pill px-3 py-1 text-sm">의석 왜곡 {evaluation.distortionScore.toFixed(2)}석</span>
               </div>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
@@ -251,10 +424,13 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
           </div>
           <div className="mt-3 grid gap-2 text-xs font-bold leading-5 text-[var(--color-brand-ink)] md:grid-cols-2">
             <p className="rounded-lg bg-white/70 px-3 py-2">
-              선거구 원칙: 모든 지역을 배정하고, 각 선거구는 서로 붙어 있어야 하며, 인구는 권장 범위 안에 들어와야 합니다.
+              선거구 획정 원칙: 모든 읍·면·동을 1~5구 중 하나에 배정하고, 같은 선거구의 지역들은 행정경계를 공유하며 하나로 연결되어야 합니다.
             </p>
             <p className="rounded-lg bg-white/70 px-3 py-2">
-              점수: 미션 달성도와 의석 왜곡 효과를 반영하고, 인구 편차 초과와 과도한 몰아주기는 감점됩니다.
+              인구 기준: 선거구별 인구는 평균 인구의 ±10% 권장 범위 안에 들어와야 하며, 벗어난 선거구마다 감점됩니다.
+            </p>
+            <p className="rounded-lg bg-white/70 px-3 py-2 md:col-span-2">
+              점수 계산: 미션 성공 모둠이 5개라면 1등은 5점, 2등은 4점, 3등은 3점처럼 한 순위씩 1점 낮게 받습니다.
             </p>
           </div>
         </section>
@@ -322,12 +498,17 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
             <section className="bo-card p-4">
               <button
                 type="button"
-                disabled={!evaluation.canSubmit || submitting}
+                disabled={submitDisabled}
                 onClick={handleSubmit}
                 className="bo-button-primary w-full px-4 py-3 text-base"
               >
-                {submitting ? "저장 중" : "최종 제출하기"}
+                {submitLabel}
               </button>
+              {submittedMatchesCurrent ? (
+                <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black leading-5 text-emerald-800 ring-1 ring-emerald-100">
+                  현재 선거구안은 이미 제출되었습니다. 지도를 수정하면 다시 제출할 수 있습니다.
+                </p>
+              ) : null}
 
               <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl bg-[var(--color-brand)] text-white shadow-[var(--shadow-sm)]">
                 <div className="border-r border-white/30 p-4 text-center">
@@ -345,7 +526,34 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
                   {message || error.message}
                 </p>
               )}
+              {!connectedDb && (
+                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-black leading-5 text-amber-900 ring-1 ring-amber-200">
+                  로컬 데모 모드입니다. 이 기기에서는 새로고침해도 작업이 유지되지만, 교사 대시보드와 실시간 동기화하려면 Firebase 설정이 필요합니다.
+                </p>
+              )}
             </section>
+
+            <section className="bo-card p-4">
+              <div className="border-l-4 border-[var(--color-brand)] pl-3">
+                <h2 className="bo-heading text-lg">제출 점검</h2>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {submitHints.map((hint, index) => (
+                  <p
+                    key={`${hint}-${index}`}
+                    className={`rounded-lg px-3 py-2 text-xs font-black leading-5 ${
+                      evaluation.canSubmit && index === 0
+                        ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100"
+                        : "bg-[var(--color-bg-soft)] text-[var(--color-text-muted)]"
+                    }`}
+                  >
+                    {hint}
+                  </p>
+                ))}
+              </div>
+            </section>
+
+            <ProportionalityPanel evaluation={evaluation} />
 
             <section className="bo-card p-4">
               <div className="border-l-4 border-[var(--color-brand)] pl-3">
