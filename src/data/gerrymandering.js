@@ -9,7 +9,7 @@ export const PARTY_IDS = PARTIES.map((party) => party.id);
 export const DISTRICTS = [1, 2, 3, 4, 5];
 export const RECOMMENDED_DISTRICT_COUNT = 5;
 export const DISTRICT_COUNT_OPTIONS = [4, 5, 6];
-export const DEFAULT_ELECTION_DATASET_ID = "president2022";
+export const DEFAULT_ELECTION_DATASET_ID = "localMayor2022";
 export const DEFAULT_MISSION_TYPE = "target_seats";
 
 export const MISSION_TYPES = {
