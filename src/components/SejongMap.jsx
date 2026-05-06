@@ -315,11 +315,12 @@ function Label({ x, y, children, size = 24, strong = false }) {
   );
 }
 
-function VoteCallout({ anchor, box, label, votes, disabled = false }) {
+function VoteCallout({ anchor, box, label, votes, disabled = false, selected = false }) {
   const total = votes.DEM + votes.PPP;
-  const lineColor = disabled ? "#9CA3AF" : "#111827";
-  const cardFill = disabled ? "#F8FAFC" : "#FFFFFF";
-  const titleColor = disabled ? "#64748B" : "#111827";
+  const lineColor = disabled ? "#9CA3AF" : selected ? "#16844A" : "#111827";
+  const cardFill = disabled ? "#F8FAFC" : selected ? "#ECFDF5" : "#FFFFFF";
+  const cardStroke = disabled ? "#D7DEE8" : selected ? "#16844A" : "#D7DEE8";
+  const titleColor = disabled ? "#64748B" : selected ? "#166534" : "#111827";
   const demColor = disabled ? "#8FB3FF" : "#1B6BFF";
   const pppColor = disabled ? "#F2A1A1" : "#E34848";
   const totalColor = disabled ? "#94A3B8" : "#475569";
@@ -352,13 +353,18 @@ function VoteCallout({ anchor, box, label, votes, disabled = false }) {
         height={CALLOUT_SIZE.height}
         rx="8"
         fill={cardFill}
-        stroke="#D7DEE8"
-        strokeWidth="1.5"
+        stroke={cardStroke}
+        strokeWidth={selected ? "3" : "1.5"}
         filter="url(#vote-card-shadow)"
       />
       <text x={box.x + 10} y={box.y + 19} style={{ fill: titleColor, fontSize: 13, fontWeight: 900 }}>
         {label}
       </text>
+      {selected ? (
+        <text x={box.x + CALLOUT_SIZE.width - 10} y={box.y + 19} textAnchor="end" style={{ fill: "#16844A", fontSize: 10, fontWeight: 900 }}>
+          선택
+        </text>
+      ) : null}
       <text x={box.x + 10} y={box.y + 37} style={{ fill: demColor, fontSize: 12, fontWeight: 800 }}>
         민주: {formatMapNumber(votes.DEM)}
       </text>
@@ -474,6 +480,7 @@ export default function SejongMap({
         box: getCalloutBox(baseAnchor, label, mode, mapCenter, areaId),
         votes: getAreaVotes(areaId, electionDatasetId),
         disabled: isAreaDisabled(areaId),
+        selected: selectedAreaIds.includes(areaId),
       };
     });
 

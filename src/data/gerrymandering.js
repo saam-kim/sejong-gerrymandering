@@ -31,11 +31,11 @@ export const MISSION_TYPES = {
 };
 
 export const DISTRICT_THEME = {
-  1: { name: "제1선거구", color: "#1B6BFF", soft: "#E6EEFF" },
-  2: { name: "제2선거구", color: "#2E7D4F", soft: "#EAF5EE" },
-  3: { name: "제3선거구", color: "#F2A900", soft: "#FFF4D6" },
-  4: { name: "제4선거구", color: "#8B5CF6", soft: "#F0E7FF" },
-  5: { name: "제5선거구", color: "#0F766E", soft: "#DDF7F2" },
+  1: { name: "세종갑", color: "#1B6BFF", soft: "#E6EEFF" },
+  2: { name: "세종을", color: "#2E7D4F", soft: "#EAF5EE" },
+  3: { name: "세종병", color: "#F2A900", soft: "#FFF4D6" },
+  4: { name: "세종정", color: "#8B5CF6", soft: "#F0E7FF" },
+  5: { name: "세종무", color: "#0F766E", soft: "#DDF7F2" },
 };
 
 const AREA_ORDER = [
@@ -232,6 +232,41 @@ export const ELECTION_DATASETS = {
       boram: { DEM: 11580, PPP: 5380 },
       sodam: { DEM: 20150, PPP: 8840 },
       bangok: { DEM: 18120, PPP: 8070 },
+    },
+  },
+  localMayor2022: {
+    id: "localMayor2022",
+    name: "2022 지방선거",
+    description:
+      "제8회 전국동시지방선거 세종특별자치시장 선거의 읍면동별 이춘희/최민호 득표율을 수업용 표 규모에 맞춰 환산한 데이터입니다.",
+    sourceLabel: "이춘희 vs 최민호",
+    demLabel: "이춘희",
+    pppLabel: "최민호",
+    votes: {
+      sojeong: { DEM: 623, PPP: 1477 },
+      jeonui: { DEM: 1679, PPP: 3491 },
+      jeondong: { DEM: 724, PPP: 2316 },
+      yeonseo: { DEM: 1941, PPP: 4629 },
+      jochiwon: { DEM: 14147, PPP: 23953 },
+      yeondong: { DEM: 760, PPP: 1990 },
+      janggun: { DEM: 2091, PPP: 4209 },
+      yeongi: { DEM: 833, PPP: 1997 },
+      haemil: { DEM: 5900, PPP: 4200 },
+      areum: { DEM: 11390, PPP: 9110 },
+      dodam: { DEM: 13945, PPP: 14755 },
+      bugang: { DEM: 2049, PPP: 3651 },
+      goun: { DEM: 14686, PPP: 15414 },
+      jongchon: { DEM: 13050, PPP: 12650 },
+      eojin: { DEM: 5005, PPP: 5295 },
+      dajeong: { DEM: 12261, PPP: 12539 },
+      saerom: { DEM: 13337, PPP: 13363 },
+      naseong: { DEM: 6094, PPP: 6106 },
+      hansol: { DEM: 8404, PPP: 7746 },
+      geumnam: { DEM: 2448, PPP: 5102 },
+      daepyeong: { DEM: 5382, PPP: 5418 },
+      boram: { DEM: 8121, PPP: 8279 },
+      sodam: { DEM: 14444, PPP: 13856 },
+      bangok: { DEM: 13908, PPP: 11692 },
     },
   },
 };
