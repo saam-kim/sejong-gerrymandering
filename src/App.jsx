@@ -397,7 +397,7 @@ function LandingHome() {
               BOOONG CLASSROOM GAME
             </span>
             <h1 className="mt-6 text-5xl font-black leading-[1.08] tracking-normal text-white sm:text-7xl">
-              지도를 훔친 아이들
+              지도를 훔친 자들
             </h1>
             <p className="mt-4 text-xl font-black text-blue-200 sm:text-2xl">게리맨더링의 마법</p>
             <p className="mx-auto mt-5 max-w-xl text-base font-semibold leading-7 text-white/55">
@@ -452,7 +452,7 @@ function LandingHome() {
           <BackButton onClick={() => setScreen("landing")} />
           <form onSubmit={joinStudentRoom} className="w-full max-w-[400px]">
             <div className="text-center">
-              <h1 className="text-2xl font-black text-blue-200">지도를 훔친 아이들</h1>
+              <h1 className="text-2xl font-black text-blue-200">지도를 훔친 자들</h1>
               <p className="mt-2 text-sm font-bold text-white/35">교사가 알려준 PIN을 입력하세요</p>
             </div>
 
