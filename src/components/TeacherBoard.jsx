@@ -161,6 +161,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
 
   const populationRange = getPopulationRange(DISTRICTS.length);
   const selectedElectionDataset = getElectionDataset(mission?.electionDatasetId || electionDatasetId);
+  const maxSeatsByParty = selectedElectionDataset.maxSeats || {};
   const selectedMissionType = mission?.missionType || missionType;
   const selectedMissionConfig = MISSION_TYPES[selectedMissionType] || MISSION_TYPES[DEFAULT_MISSION_TYPE];
   const hasMission = Boolean(mission);
@@ -339,6 +340,39 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                       </select>
                       <span className="text-[11px] font-bold leading-5 text-slate-400">{selectedElectionDataset.description}</span>
                     </label>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-black text-slate-500">최대 확보 가능 의석</span>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500">
+                          선거구 규칙 적용
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {PARTY_IDS.map((partyId) => (
+                          <div
+                            key={partyId}
+                            className={`rounded-lg border bg-white px-3 py-2 ${
+                              partyId === "DEM" ? "border-blue-100" : "border-red-100"
+                            }`}
+                          >
+                            <span
+                              className="block text-[10px] font-black"
+                              style={{ color: partyId === "DEM" ? "#1B6BFF" : "#E34848" }}
+                            >
+                              {partyName(partyId)}
+                            </span>
+                            <span
+                              className="mt-0.5 block text-2xl font-black leading-none"
+                              style={{ color: partyId === "DEM" ? "#1B6BFF" : "#E34848" }}
+                            >
+                              {Number(maxSeatsByParty[partyId] || 0)}
+                              <span className="ml-0.5 text-sm font-black">석</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
                     {missionType === "target_seats" ? (
                       <div>

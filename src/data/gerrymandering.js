@@ -198,6 +198,7 @@ export const ELECTION_DATASETS = {
     sourceLabel: "이재명 vs 윤석열",
     demLabel: "이재명",
     pppLabel: "윤석열",
+    maxSeats: { DEM: 5, PPP: 0 },
     votes: Object.fromEntries(Object.entries(AREA_INFO).map(([areaId, [, , demVotes, pppVotes]]) => [areaId, { DEM: demVotes, PPP: pppVotes }])),
   },
   assembly2024: {
@@ -207,6 +208,7 @@ export const ELECTION_DATASETS = {
     sourceLabel: "민주 진영 vs 국민의힘 진영",
     demLabel: "민주 진영",
     pppLabel: "국민의힘 진영",
+    maxSeats: { DEM: 5, PPP: 1 },
     votes: {
       sojeong: { DEM: 820, PPP: 1260 },
       jeonui: { DEM: 2150, PPP: 3020 },
@@ -242,6 +244,7 @@ export const ELECTION_DATASETS = {
     sourceLabel: "이춘희 vs 최민호",
     demLabel: "이춘희",
     pppLabel: "최민호",
+    maxSeats: { DEM: 4, PPP: 4 },
     votes: {
       sojeong: { DEM: 623, PPP: 1477 },
       jeonui: { DEM: 1679, PPP: 3491 },
