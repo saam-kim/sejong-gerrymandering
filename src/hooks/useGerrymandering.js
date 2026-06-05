@@ -111,6 +111,7 @@ function getSubmissionTime(entry) {
 }
 
 function isScoreEligible(entry, missionType) {
+  if (entry.missionType !== missionType) return false;
   if (missionType === "round2_extreme") return entry.status === "mission_success" || entry.missionSuccess;
   return (
     (entry.status === "mission_success" || entry.status === "submitted") &&
@@ -420,15 +421,29 @@ export function useGerrymandering({
       normalizedEntries.filter((entry) => isScoreEligible(entry, missionType)),
       missionType,
     );
-    const scoreByTeamId = new Map(
-      eligibleEntries.map((entry, index) => [
-        entry.teamId,
-        {
-          missionRank: index + 1,
-          missionScore: eligibleEntries.length - index,
-        },
-      ]),
-    );
+    const scoreByTeamId = new Map();
+    let currentRank = 1;
+    for (let i = 0; i < eligibleEntries.length; i++) {
+      const entry = eligibleEntries[i];
+      if (i > 0) {
+        const prevEntry = eligibleEntries[i - 1];
+        let hasDifference = false;
+        if (missionType === "round3_fair") {
+          hasDifference = Number(entry.proportionalityScore || 0) !== Number(prevEntry.proportionalityScore || 0);
+        } else {
+          hasDifference = false;
+        }
+
+        if (hasDifference) {
+          currentRank = i + 1;
+        }
+      }
+
+      scoreByTeamId.set(entry.teamId, {
+        missionRank: currentRank,
+        missionScore: entry.finalScore,
+      });
+    }
 
     return normalizedEntries
       .map((entry) => ({

@@ -719,11 +719,15 @@ export function seatsMatchRound2Target(seats = {}) {
   );
 }
 
-function calculateFinalScore({ missionType, distortionScore, penalty, bonus, districtCount, canSubmit, populationValid }) {
+function calculateFinalScore({ missionType, distortionScore, penalty, bonus, districtCount, canSubmit, populationValid, targetMatched }) {
   if (!canSubmit) return 0;
 
   if (missionType === "round1_valid") {
     return populationValid ? 100 : Math.max(0, 60 + penalty);
+  }
+
+  if (missionType === "round2_extreme") {
+    return (populationValid && targetMatched) ? 100 : Math.max(0, 60 + penalty);
   }
 
   if (missionType === "round3_fair") {
@@ -765,6 +769,7 @@ export function validatePlan(
   const bonus = unassignedAreaIds.length === 0 && contiguity.isValid ? 1 : 0;
   const canSubmit = unassignedAreaIds.length === 0 && emptyDistricts.length === 0 && contiguity.isValid;
   const populationValid = populationViolations.length === 0;
+  const targetMatched = missionType === "round2_extreme" ? seatsMatchRound2Target(seats) : targetSeats ? seatsMatchTarget(seats, targetSeats) : false;
   const finalScore = calculateFinalScore({
     missionType,
     distortionScore,
@@ -773,8 +778,8 @@ export function validatePlan(
     districtCount: districts.length,
     canSubmit,
     populationValid,
+    targetMatched,
   });
-  const targetMatched = missionType === "round2_extreme" ? seatsMatchRound2Target(seats) : targetSeats ? seatsMatchTarget(seats, targetSeats) : false;
   const errors = [
     ...contiguity.errors,
     ...(unassignedAreaIds.length > 0 ? [`아직 배정하지 않은 읍·면·동이 ${unassignedAreaIds.length}곳 있습니다.`] : []),
