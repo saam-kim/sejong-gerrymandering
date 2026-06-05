@@ -325,6 +325,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [compareTeamId, setCompareTeamId] = useState(null);
   const [restartArmed, setRestartArmed] = useState(false);
+  const [prevRoundArmed, setPrevRoundArmed] = useState(false);
   const [resetArmed, setResetArmed] = useState(false);
   const [panelTab, setPanelTab] = useState("mission");
   const [compareExpanded, setCompareExpanded] = useState(false);
@@ -388,6 +389,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const activeMissionTypeForNext = hasMission ? mission?.missionType : missionType;
   const currentRoundIndex = roundMissionItems.findIndex((item) => item.id === activeMissionTypeForNext);
   const nextRoundItem = hasMission ? (roundMissionItems[currentRoundIndex + 1] ?? null) : null;
+  const prevRoundItem = hasMission ? (roundMissionItems[currentRoundIndex - 1] ?? null) : null;
   const hasSubmission = leaderboard.length > 0;
   const submittedCount = leaderboard.filter((entry) => entry.status === "submitted" || entry.status === "mission_success").length;
   const successCount = leaderboard.filter((entry) => entry.status === "mission_success" || entry.missionSuccess).length;
@@ -400,6 +402,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
 
   useEffect(() => {
     setRestartArmed(false);
+    setPrevRoundArmed(false);
     setResetArmed(false);
   }, [electionDatasetId, leaderboard.length, mission?.startedAtClient, missionType, targetSeats.DEM, targetSeats.PPP]);
 
@@ -428,6 +431,30 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
     setSelectedTeamId(null);
     setCompareTeamId(null);
     setRestartArmed(false);
+  }
+
+  async function goToPrevRound() {
+    if (!prevRoundItem) return;
+    if (!prevRoundArmed) {
+      setPrevRoundArmed(true);
+      setRestartArmed(false);
+      return;
+    }
+
+    const dataset = getElectionDataset(electionDatasetId);
+    const missionConfig = MISSION_TYPES[prevRoundItem.id] || MISSION_TYPES[DEFAULT_MISSION_TYPE];
+    await setMission({
+      targetSeats,
+      electionDatasetId,
+      missionType: prevRoundItem.id,
+      durationSeconds: missionConfig.durationSeconds || 300,
+      title: `${missionConfig.name}: ${dataset.name}`,
+    });
+    setMissionType(prevRoundItem.id);
+    await resetRound();
+    setSelectedTeamId(null);
+    setCompareTeamId(null);
+    setPrevRoundArmed(false);
   }
 
   async function handleResetRound() {
@@ -803,23 +830,38 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                     </div>
                   </section>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={startMission}
-                  className={`rounded-xl px-4 py-3 text-sm font-black ${
-                    hasMission && !restartArmed
-                      ? "border border-yellow-200 bg-yellow-50 text-yellow-800"
-                      : "bg-blue-600 text-white hover:bg-blue-800"
-                  }`}
-                >
-                  {!hasMission
-                    ? "라운드 시작"
-                    : restartArmed
-                    ? `정말 ${nextRoundItem ? nextRoundItem.name : "다음 라운드"} 시작`
-                    : nextRoundItem
-                    ? `다음 라운드 시작 (${nextRoundItem.name})`
-                    : "다음 라운드 시작"}
-                </button>
+                <div className="flex gap-2">
+                  {prevRoundItem ? (
+                    <button
+                      type="button"
+                      onClick={goToPrevRound}
+                      className={`rounded-xl px-3 py-3 text-sm font-black ${
+                        prevRoundArmed
+                          ? "border border-orange-200 bg-orange-50 text-orange-800"
+                          : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {prevRoundArmed ? `정말 ${prevRoundItem.name}으로` : `← ${prevRoundItem.name}으로`}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={startMission}
+                    className={`flex-1 rounded-xl px-4 py-3 text-sm font-black ${
+                      hasMission && !restartArmed
+                        ? "border border-yellow-200 bg-yellow-50 text-yellow-800"
+                        : "bg-blue-600 text-white hover:bg-blue-800"
+                    }`}
+                  >
+                    {!hasMission
+                      ? "라운드 시작"
+                      : restartArmed
+                      ? `정말 ${nextRoundItem ? nextRoundItem.name : "다음 라운드"} 시작`
+                      : nextRoundItem
+                      ? `다음 라운드 시작 (${nextRoundItem.name})`
+                      : "다음 라운드 시작"}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={handleResetRound}
@@ -833,6 +875,11 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                 {restartArmed ? (
                   <p className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-[11px] font-black leading-5 text-yellow-800">
                     {nextRoundItem ? `${nextRoundItem.name}(으)로` : "다음 라운드로"} 넘어가면 현재 제출 현황이 초기화됩니다. 계속하려면 한 번 더 누르세요.
+                  </p>
+                ) : null}
+                {prevRoundArmed ? (
+                  <p className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-[11px] font-black leading-5 text-orange-800">
+                    {prevRoundItem?.name}으로 돌아가면 현재 제출 현황이 초기화됩니다. 계속하려면 한 번 더 누르세요.
                   </p>
                 ) : null}
                 {resetArmed ? (
