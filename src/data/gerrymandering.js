@@ -1,0 +1,807 @@
+import sejongBoundaries from "./sejongBoundaries.js";
+
+export const PARTIES = [
+  { id: "DEM", name: "민주당", shortName: "민주", color: "#1B6BFF", soft: "#E6EEFF" },
+  { id: "PPP", name: "국민의힘", shortName: "국힘", color: "#E34848", soft: "#FEECEC" },
+];
+
+export const PARTY_IDS = PARTIES.map((party) => party.id);
+export const DISTRICTS = [1, 2, 3, 4, 5];
+export const RECOMMENDED_DISTRICT_COUNT = 5;
+export const DISTRICT_COUNT_OPTIONS = [4, 5, 6];
+export const DEFAULT_ELECTION_DATASET_ID = "localMayor2022";
+export const DEFAULT_MISSION_TYPE = "round1_valid";
+export const DISTRICT_POPULATION_LIMITS = { minPopulation: 70_000, maxPopulation: 100_000 };
+
+export const MISSION_TYPES = {
+  round1_valid: {
+    id: "round1_valid",
+    name: "1라운드 · 기본 획정",
+    round: 1,
+    durationSeconds: 180,
+    description: "3분 안에 인접 조건과 인구 조건을 모두 만족하는 선거구 5개를 획정합니다.",
+  },
+  round2_extreme: {
+    id: "round2_extreme",
+    name: "2라운드 · 의석 뒤집기",
+    round: 2,
+    durationSeconds: 300,
+    description: "5분 안에 민주당 4석·국민의힘 1석 또는 민주당 1석·국민의힘 4석 결과를 만듭니다.",
+  },
+  round3_fair: {
+    id: "round3_fair",
+    name: "3라운드 · 공정성 회복",
+    round: 3,
+    durationSeconds: 300,
+    description: "5분 안에 인구·인접 조건을 지키면서 득표율과 의석 비율의 차이가 가장 작은 선거구를 만듭니다.",
+  },
+};
+
+export const DISTRICT_THEME = {
+  1: { name: "세종갑", color: "#C2410C", soft: "#FFF1E7" },
+  2: { name: "세종을", color: "#2E7D4F", soft: "#EAF5EE" },
+  3: { name: "세종병", color: "#F2A900", soft: "#FFF4D6" },
+  4: { name: "세종정", color: "#8B5CF6", soft: "#F0E7FF" },
+  5: { name: "세종무", color: "#BE123C", soft: "#FFE4E6" },
+};
+
+const AREA_ORDER = [
+  "sojeong",
+  "jeonui",
+  "jeondong",
+  "yeonseo",
+  "jochiwon",
+  "yeondong",
+  "janggun",
+  "yeongi",
+  "haemil",
+  "areum",
+  "dodam",
+  "bugang",
+  "goun",
+  "jongchon",
+  "eojin",
+  "dajeong",
+  "saerom",
+  "naseong",
+  "hansol",
+  "geumnam",
+  "daepyeong",
+  "boram",
+  "sodam",
+  "bangok",
+];
+
+export const FEATURE_AREA_OVERRIDES = {
+  36110105: "hansol",
+  36110115: "haemil",
+  36110120: "haemil",
+  36110121: "haemil",
+  36110119: "naseong",
+  36110118: "bangok",
+  36110117: "bangok",
+  36110123: "bangok",
+  36110122: "bangok",
+};
+
+export function getFeatureAreaId(feature) {
+  return FEATURE_AREA_OVERRIDES[feature.id] || feature.properties.gameAreaId || null;
+}
+
+const EXCLUDED_BOUNDARY_NEIGHBORS = new Set(["bangok|haemil"]);
+
+function neighborPairKey(left, right) {
+  return [left, right].sort().join("|");
+}
+
+const BASE_AREA_NEIGHBORS = {
+  sojeong: ["jeonui"],
+  jeonui: ["sojeong", "jeondong", "yeonseo"],
+  jeondong: ["jeonui", "yeonseo", "jochiwon"],
+  yeonseo: ["jeonui", "jeondong", "jochiwon", "yeongi", "janggun", "yeondong"],
+  jochiwon: ["yeonseo", "jeondong", "yeondong"],
+  yeondong: ["yeonseo", "jochiwon", "geumnam", "bugang", "yeongi"],
+  janggun: ["yeonseo", "goun", "geumnam", "dajeong", "saerom", "hansol", "yeongi"],
+  yeongi: ["yeonseo", "goun", "yeondong", "janggun"],
+  haemil: ["areum", "dodam", "goun", "naseong"],
+  areum: ["goun", "dodam", "jongchon"],
+  dodam: ["areum", "eojin", "jongchon", "haemil"],
+  bugang: ["geumnam", "yeondong"],
+  goun: ["dajeong", "areum", "yeongi", "janggun", "jongchon"],
+  jongchon: ["goun", "dajeong", "dodam", "areum", "eojin"],
+  eojin: ["naseong", "dajeong", "dodam", "jongchon"],
+  dajeong: ["goun", "naseong", "saerom", "eojin", "janggun", "jongchon"],
+  saerom: ["naseong", "dajeong", "janggun", "hansol"],
+  naseong: ["dajeong", "saerom", "eojin", "hansol"],
+  hansol: ["naseong", "saerom", "janggun"],
+  geumnam: ["daepyeong", "bangok", "boram", "bugang", "sodam", "yeondong", "janggun"],
+  daepyeong: ["geumnam", "boram"],
+  boram: ["geumnam", "daepyeong", "sodam"],
+  sodam: ["geumnam", "bangok", "boram"],
+  bangok: ["geumnam", "sodam"],
+};
+
+function featureRings(feature) {
+  if (!feature.geometry) return [];
+  if (feature.geometry.type === "Polygon") return feature.geometry.coordinates;
+  if (feature.geometry.type === "MultiPolygon") return feature.geometry.coordinates.flat();
+  return [];
+}
+
+function pointKey(point) {
+  return `${point[0].toFixed(6)},${point[1].toFixed(6)}`;
+}
+
+function segmentKey(a, b) {
+  const from = pointKey(a);
+  const to = pointKey(b);
+  return from < to ? `${from}|${to}` : `${to}|${from}`;
+}
+
+function featureSegments(feature) {
+  return featureRings(feature).flatMap((ring) =>
+    ring.slice(0, -1).map((point, index) => segmentKey(point, ring[index + 1])),
+  );
+}
+
+function buildBoundaryNeighbors() {
+  const segmentOwners = new Map();
+  for (const feature of sejongBoundaries.features) {
+    const areaId = getFeatureAreaId(feature);
+    if (!areaId) continue;
+    for (const segment of featureSegments(feature)) {
+      if (!segmentOwners.has(segment)) segmentOwners.set(segment, new Set());
+      segmentOwners.get(segment).add(areaId);
+    }
+  }
+
+  const neighbors = Object.fromEntries(AREA_ORDER.map((areaId) => [areaId, new Set(BASE_AREA_NEIGHBORS[areaId] || [])]));
+  for (const areaIds of segmentOwners.values()) {
+    const ids = [...areaIds];
+    if (ids.length < 2) continue;
+    for (const areaId of ids) {
+      for (const neighborId of ids) {
+        if (areaId !== neighborId && !EXCLUDED_BOUNDARY_NEIGHBORS.has(neighborPairKey(areaId, neighborId))) neighbors[areaId]?.add(neighborId);
+      }
+    }
+  }
+
+  return Object.fromEntries(
+    AREA_ORDER.map((areaId) => [
+      areaId,
+      [...(neighbors[areaId] || [])].sort((a, b) => AREA_ORDER.indexOf(a) - AREA_ORDER.indexOf(b)),
+    ]),
+  );
+}
+
+const AREA_NEIGHBORS = buildBoundaryNeighbors();
+
+const AREA_INFO = {
+  sojeong: ["소정면", 2800, 920, 1180],
+  jeonui: ["전의면", 6100, 2350, 2820],
+  jeondong: ["전동면", 3700, 1320, 1720],
+  yeonseo: ["연서면", 7800, 3250, 3320],
+  jochiwon: ["조치원읍", 43800, 20500, 17600],
+  yeondong: ["연동면", 3300, 1220, 1530],
+  janggun: ["장군면", 7800, 3350, 2950],
+  yeongi: ["연기면", 3500, 1450, 1380],
+  haemil: ["해밀동", 11500, 6450, 3650],
+  areum: ["아름동", 23600, 12800, 7700],
+  dodam: ["도담동", 33500, 18300, 10400],
+  bugang: ["부강면", 6800, 2650, 3050],
+  goun: ["고운동", 34300, 19000, 11100],
+  jongchon: ["종촌동", 29500, 16300, 9400],
+  eojin: ["어진동", 11800, 6500, 3800],
+  dajeong: ["다정동", 28900, 16400, 8400],
+  saerom: ["새롬동", 31000, 17600, 9100],
+  naseong: ["나성동", 13900, 7400, 4800],
+  hansol: ["한솔동", 18700, 10500, 5650],
+  geumnam: ["금남면", 9100, 3900, 3650],
+  daepyeong: ["대평동", 12400, 6900, 3900],
+  boram: ["보람동", 19100, 10800, 5600],
+  sodam: ["소담동", 33300, 19000, 9300],
+  bangok: ["반곡동", 30200, 17100, 8500],
+};
+
+export const ELECTION_DATASETS = {
+  localMayor2022: {
+    id: "localMayor2022",
+    name: "2022 지방선거",
+    description:
+      "제8회 전국동시지방선거 세종특별자치시장 선거의 읍면동별 이춘희/최민호 득표율을 수업용 표 규모에 맞춰 환산한 데이터입니다.",
+    sourceLabel: "이춘희 vs 최민호",
+    demLabel: "이춘희",
+    pppLabel: "최민호",
+    maxSeats: { DEM: 4, PPP: 4 },
+    votes: {
+      sojeong: { DEM: 623, PPP: 1477 },
+      jeonui: { DEM: 1679, PPP: 3491 },
+      jeondong: { DEM: 724, PPP: 2316 },
+      yeonseo: { DEM: 1941, PPP: 4629 },
+      jochiwon: { DEM: 14147, PPP: 23953 },
+      yeondong: { DEM: 760, PPP: 1990 },
+      janggun: { DEM: 2091, PPP: 4209 },
+      yeongi: { DEM: 833, PPP: 1997 },
+      haemil: { DEM: 5900, PPP: 4200 },
+      areum: { DEM: 11390, PPP: 9110 },
+      dodam: { DEM: 13945, PPP: 14755 },
+      bugang: { DEM: 2049, PPP: 3651 },
+      goun: { DEM: 14686, PPP: 15414 },
+      jongchon: { DEM: 13050, PPP: 12650 },
+      eojin: { DEM: 5005, PPP: 5295 },
+      dajeong: { DEM: 12261, PPP: 12539 },
+      saerom: { DEM: 13337, PPP: 13363 },
+      naseong: { DEM: 6094, PPP: 6106 },
+      hansol: { DEM: 8404, PPP: 7746 },
+      geumnam: { DEM: 2448, PPP: 5102 },
+      daepyeong: { DEM: 5382, PPP: 5418 },
+      boram: { DEM: 8121, PPP: 8279 },
+      sodam: { DEM: 14444, PPP: 13856 },
+      bangok: { DEM: 13908, PPP: 11692 },
+    },
+  },
+};
+
+const AREA_SHAPES = {
+  sojeong: [
+    [20, 4],
+    [37, 5],
+    [42, 18],
+    [32, 29],
+    [18, 24],
+    [11, 14],
+    [20, 4],
+  ],
+  jeonui: [
+    [18, 24],
+    [32, 29],
+    [40, 44],
+    [30, 60],
+    [14, 57],
+    [6, 43],
+    [18, 24],
+  ],
+  jeondong: [
+    [42, 18],
+    [58, 16],
+    [73, 29],
+    [70, 49],
+    [53, 54],
+    [40, 44],
+    [42, 18],
+  ],
+  yeonseo: [
+    [30, 60],
+    [53, 54],
+    [61, 82],
+    [47, 97],
+    [27, 93],
+    [15, 78],
+    [30, 60],
+  ],
+  jochiwon: [
+    [53, 54],
+    [70, 49],
+    [86, 58],
+    [85, 73],
+    [68, 76],
+    [61, 82],
+    [53, 54],
+  ],
+  yeondong: [
+    [68, 76],
+    [86, 73],
+    [97, 84],
+    [95, 99],
+    [83, 106],
+    [67, 95],
+    [68, 76],
+  ],
+  janggun: [
+    [15, 78],
+    [27, 93],
+    [25, 111],
+    [13, 123],
+    [4, 106],
+    [7, 88],
+    [15, 78],
+  ],
+  yeongi: [
+    [47, 97],
+    [61, 82],
+    [67, 95],
+    [63, 109],
+    [49, 113],
+    [38, 104],
+    [47, 97],
+  ],
+  haemil: [
+    [25, 111],
+    [38, 104],
+    [49, 113],
+    [46, 123],
+    [32, 122],
+    [25, 111],
+  ],
+  areum: [
+    [49, 113],
+    [63, 109],
+    [69, 121],
+    [61, 132],
+    [46, 123],
+    [49, 113],
+  ],
+  dodam: [
+    [63, 109],
+    [79, 113],
+    [82, 127],
+    [69, 121],
+    [63, 109],
+  ],
+  bugang: [
+    [79, 113],
+    [97, 107],
+    [101, 126],
+    [88, 139],
+    [82, 127],
+    [79, 113],
+  ],
+  goun: [
+    [13, 123],
+    [25, 111],
+    [32, 122],
+    [31, 136],
+    [18, 140],
+    [7, 132],
+    [13, 123],
+  ],
+  jongchon: [
+    [32, 122],
+    [46, 123],
+    [49, 135],
+    [39, 144],
+    [31, 136],
+    [32, 122],
+  ],
+  eojin: [
+    [46, 123],
+    [61, 132],
+    [57, 143],
+    [49, 135],
+    [46, 123],
+  ],
+  dajeong: [
+    [31, 136],
+    [39, 144],
+    [36, 152],
+    [24, 155],
+    [18, 140],
+    [31, 136],
+  ],
+  saerom: [
+    [39, 144],
+    [49, 135],
+    [57, 143],
+    [51, 155],
+    [36, 152],
+    [39, 144],
+  ],
+  naseong: [
+    [57, 143],
+    [67, 151],
+    [61, 162],
+    [51, 155],
+    [57, 143],
+  ],
+  hansol: [
+    [7, 132],
+    [18, 140],
+    [24, 155],
+    [14, 164],
+    [3, 151],
+    [7, 132],
+  ],
+  geumnam: [
+    [24, 155],
+    [36, 152],
+    [51, 155],
+    [50, 170],
+    [35, 177],
+    [20, 170],
+    [14, 164],
+    [24, 155],
+  ],
+  daepyeong: [
+    [51, 155],
+    [61, 162],
+    [58, 173],
+    [50, 170],
+    [51, 155],
+  ],
+  boram: [
+    [61, 162],
+    [73, 161],
+    [76, 174],
+    [58, 173],
+    [61, 162],
+  ],
+  sodam: [
+    [73, 161],
+    [88, 151],
+    [95, 165],
+    [89, 182],
+    [76, 174],
+    [73, 161],
+  ],
+  bangok: [
+    [88, 139],
+    [101, 126],
+    [108, 143],
+    [95, 165],
+    [88, 151],
+    [67, 151],
+    [88, 139],
+  ],
+};
+
+export const SEJONG_AREAS = AREA_ORDER.map((id) => {
+    const [name, population, demVotes, pppVotes] = AREA_INFO[id];
+
+    return {
+      id,
+      name,
+      population,
+      votes: { DEM: demVotes, PPP: pppVotes },
+      neighbors: AREA_NEIGHBORS[id] || [],
+      geometry: {
+        type: "Polygon",
+        coordinates: [AREA_SHAPES[id]],
+      },
+    };
+  });
+
+export const SEJONG_GEOJSON = {
+  type: "FeatureCollection",
+  features: SEJONG_AREAS.map((area) => ({
+    type: "Feature",
+    id: area.id,
+    properties: {
+      name: area.name,
+      population: area.population,
+      votes: area.votes,
+      neighbors: area.neighbors,
+    },
+    geometry: area.geometry,
+  })),
+};
+
+export const SAMPLE_OPTIMIZED_ASSIGNMENTS = {
+  sojeong: 1,
+  jeonui: 1,
+  jeondong: 1,
+  yeonseo: 1,
+  jochiwon: 1,
+  yeondong: 2,
+  janggun: 2,
+  yeongi: 2,
+  bugang: 2,
+  goun: 2,
+  jongchon: 2,
+  haemil: 3,
+  areum: 3,
+  dodam: 3,
+  eojin: 3,
+  dajeong: 4,
+  saerom: 4,
+  naseong: 4,
+  hansol: 4,
+  geumnam: 5,
+  daepyeong: 5,
+  boram: 5,
+  sodam: 5,
+  bangok: 5,
+};
+
+export const AREA_BY_ID = Object.fromEntries(SEJONG_AREAS.map((area) => [area.id, area]));
+
+export function getElectionDataset(electionId = DEFAULT_ELECTION_DATASET_ID) {
+  return ELECTION_DATASETS[electionId] || ELECTION_DATASETS[DEFAULT_ELECTION_DATASET_ID];
+}
+
+export function getAreaVotes(areaId, electionId = DEFAULT_ELECTION_DATASET_ID) {
+  const dataset = getElectionDataset(electionId);
+  return dataset.votes[areaId] || AREA_BY_ID[areaId]?.votes || { DEM: 0, PPP: 0 };
+}
+
+export function getEmptyAssignments() {
+  return Object.fromEntries(SEJONG_AREAS.map((area) => [area.id, null]));
+}
+
+export function normalizeAssignments(assignments) {
+  const empty = getEmptyAssignments();
+  if (!assignments) return empty;
+
+  if (Array.isArray(assignments)) {
+    return empty;
+  }
+
+  return Object.fromEntries(
+    SEJONG_AREAS.map((area) => {
+      const value = assignments[area.id];
+      return [area.id, value === undefined || value === null ? null : Number(value)];
+    }),
+  );
+}
+
+export function getDistrictGroups(assignments, districts = DISTRICTS) {
+  const normalized = normalizeAssignments(assignments);
+
+  return districts.reduce((groups, districtId) => {
+    groups[districtId] = SEJONG_AREAS
+      .filter((area) => normalized[area.id] === districtId)
+      .map((area) => area.id);
+    return groups;
+  }, {});
+}
+
+export function countDistrictAreas(assignments, districts = DISTRICTS) {
+  const groups = getDistrictGroups(assignments, districts);
+  return Object.fromEntries(districts.map((districtId) => [districtId, groups[districtId].length]));
+}
+
+export function isAreaSetContiguous(areaIds) {
+  if (!areaIds || areaIds.length <= 1) return true;
+
+  const areaSet = new Set(areaIds);
+  const visited = new Set([areaIds[0]]);
+  const queue = [areaIds[0]];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const currentArea = AREA_BY_ID[currentId];
+    for (const neighborId of currentArea?.neighbors || []) {
+      if (areaSet.has(neighborId) && !visited.has(neighborId)) {
+        visited.add(neighborId);
+        queue.push(neighborId);
+      }
+    }
+  }
+
+  return visited.size === areaIds.length;
+}
+
+export function getSelectableAreaIds(selectedAreaIds, assignments) {
+  const normalized = normalizeAssignments(assignments);
+  const selectedSet = new Set(selectedAreaIds);
+
+  if (selectedAreaIds.length === 0) {
+    return SEJONG_AREAS.filter((area) => !normalized[area.id]).map((area) => area.id);
+  }
+
+  const adjacentToSelection = new Set();
+  for (const areaId of selectedAreaIds) {
+    for (const neighborId of AREA_BY_ID[areaId]?.neighbors || []) {
+      adjacentToSelection.add(neighborId);
+    }
+  }
+
+  return SEJONG_AREAS
+    .filter((area) => selectedSet.has(area.id) || (!normalized[area.id] && adjacentToSelection.has(area.id)))
+    .map((area) => area.id);
+}
+
+export function checkContiguity(assignments, { districts = DISTRICTS } = {}) {
+  const groups = getDistrictGroups(assignments, districts);
+  const invalidDistricts = [];
+  const errors = [];
+
+  for (const districtId of districts) {
+    const areaIds = groups[districtId];
+    if (areaIds.length > 0 && !isAreaSetContiguous(areaIds)) {
+      invalidDistricts.push(districtId);
+      errors.push(`${DISTRICT_THEME[districtId].name}의 지역이 서로 인접하지 않습니다.`);
+    }
+  }
+
+  return {
+    isValid: invalidDistricts.length === 0,
+    invalidDistricts,
+    errors,
+  };
+}
+
+function sumVotes(areaIds, electionId = DEFAULT_ELECTION_DATASET_ID) {
+  return areaIds.reduce(
+    (sum, areaId) => {
+      const votes = getAreaVotes(areaId, electionId);
+      sum.DEM += votes.DEM;
+      sum.PPP += votes.PPP;
+      return sum;
+    },
+    { DEM: 0, PPP: 0 },
+  );
+}
+
+function pickWinner(votes) {
+  if (votes.DEM === votes.PPP) return "DEM";
+  return votes.DEM > votes.PPP ? "DEM" : "PPP";
+}
+
+export function getTotalPopulation() {
+  return SEJONG_AREAS.reduce((sum, area) => sum + area.population, 0);
+}
+
+export function getTotalVotes(electionId = DEFAULT_ELECTION_DATASET_ID) {
+  return sumVotes(SEJONG_AREAS.map((area) => area.id), electionId);
+}
+
+export function getPopulationRange(districtCount = DISTRICTS.length) {
+  const averagePopulation = getTotalPopulation() / districtCount;
+  return {
+    averagePopulation,
+    minPopulation: DISTRICT_POPULATION_LIMITS.minPopulation,
+    maxPopulation: DISTRICT_POPULATION_LIMITS.maxPopulation,
+  };
+}
+
+export function getDistrictCountReview(districtCounts = DISTRICT_COUNT_OPTIONS) {
+  const totalPopulation = getTotalPopulation();
+
+  return districtCounts.map((districtCount) => {
+    const populationRange = getPopulationRange(districtCount);
+    return {
+      districtCount,
+      totalPopulation,
+      averagePopulation: populationRange.averagePopulation,
+      minPopulation: populationRange.minPopulation,
+      maxPopulation: populationRange.maxPopulation,
+      recommended: districtCount === RECOMMENDED_DISTRICT_COUNT,
+    };
+  });
+}
+
+export function calculateDistrictResults(assignments, { districts = DISTRICTS, electionId = DEFAULT_ELECTION_DATASET_ID } = {}) {
+  const groups = getDistrictGroups(assignments, districts);
+  const { averagePopulation, minPopulation, maxPopulation } = getPopulationRange(districts.length);
+
+  return districts.map((districtId) => {
+    const areaIds = groups[districtId];
+    const population = areaIds.reduce((sum, areaId) => sum + AREA_BY_ID[areaId].population, 0);
+    const votes = sumVotes(areaIds, electionId);
+    const totalVotes = votes.DEM + votes.PPP;
+    const winner = totalVotes > 0 ? pickWinner(votes) : null;
+    const winnerVoteShare = winner ? votes[winner] / totalVotes : 0;
+
+    return {
+      districtId,
+      areaIds,
+      areaNames: areaIds.map((areaId) => AREA_BY_ID[areaId].name),
+      population,
+      populationDeviation: averagePopulation ? (population - averagePopulation) / averagePopulation : 0,
+      populationValid: population >= minPopulation && population <= maxPopulation,
+      votes,
+      totalVotes,
+      winner,
+      winnerVoteShare,
+      isPacking: winnerVoteShare >= 0.75,
+      contiguous: areaIds.length === 0 || isAreaSetContiguous(areaIds),
+    };
+  });
+}
+
+export function calculateSeats(assignments, options = {}) {
+  return calculateDistrictResults(assignments, options).reduce(
+    (seats, result) => {
+      if (result.winner) seats[result.winner] += 1;
+      return seats;
+    },
+    { DEM: 0, PPP: 0 },
+  );
+}
+
+export function getExpectedSeats(districtCount = DISTRICTS.length, electionId = DEFAULT_ELECTION_DATASET_ID) {
+  const totalVotes = getTotalVotes(electionId);
+  const allVotes = PARTY_IDS.reduce((sum, partyId) => sum + totalVotes[partyId], 0);
+
+  return Object.fromEntries(
+    PARTY_IDS.map((partyId) => [partyId, allVotes ? (totalVotes[partyId] / allVotes) * districtCount : 0]),
+  );
+}
+
+export function seatsMatchTarget(seats, targetSeats = {}) {
+  return PARTY_IDS.every((partyId) => Number(seats[partyId] || 0) === Number(targetSeats[partyId] || 0));
+}
+
+export function seatsMatchRound2Target(seats = {}) {
+  return (
+    (Number(seats.DEM || 0) === 4 && Number(seats.PPP || 0) === 1) ||
+    (Number(seats.DEM || 0) === 1 && Number(seats.PPP || 0) === 4)
+  );
+}
+
+function calculateFinalScore({ missionType, distortionScore, penalty, bonus, districtCount, canSubmit, populationValid }) {
+  if (!canSubmit) return 0;
+
+  if (missionType === "round1_valid") {
+    return populationValid ? 100 : Math.max(0, 60 + penalty);
+  }
+
+  if (missionType === "round3_fair") {
+    return Number((Math.max(0, districtCount - distortionScore) + penalty + bonus).toFixed(2));
+  }
+
+  return Number((distortionScore + penalty + bonus).toFixed(2));
+}
+
+export function validatePlan(
+  assignments,
+  targetSeats,
+  {
+    districts = DISTRICTS,
+    electionId = DEFAULT_ELECTION_DATASET_ID,
+    missionType = DEFAULT_MISSION_TYPE,
+  } = {},
+) {
+  const normalized = normalizeAssignments(assignments);
+  const districtResults = calculateDistrictResults(normalized, { districts, electionId });
+  const contiguity = checkContiguity(normalized, { districts });
+  const unassignedAreaIds = SEJONG_AREAS.filter((area) => !normalized[area.id]).map((area) => area.id);
+  const emptyDistricts = districtResults.filter((result) => result.areaIds.length === 0).map((result) => result.districtId);
+  const populationViolations = districtResults.filter(
+    (result) => result.areaIds.length > 0 && !result.populationValid,
+  );
+  const packingViolations = districtResults.filter((result) => result.isPacking);
+  const seats = calculateSeats(normalized, { districts, electionId });
+  const expectedSeats = getExpectedSeats(districts.length, electionId);
+  const distortionByParty = Object.fromEntries(
+    PARTY_IDS.map((partyId) => [partyId, seats[partyId] - expectedSeats[partyId]]),
+  );
+  const advantagedParty = PARTY_IDS.reduce((bestParty, partyId) => {
+    return distortionByParty[partyId] > distortionByParty[bestParty] ? partyId : bestParty;
+  }, PARTY_IDS[0]);
+  const distortionScore = Math.max(...PARTY_IDS.map((partyId) => Math.abs(distortionByParty[partyId])));
+  const proportionalityScore = Math.max(0, districts.length - distortionScore);
+  const penalty = populationViolations.length * -2;
+  const bonus = unassignedAreaIds.length === 0 && contiguity.isValid ? 1 : 0;
+  const canSubmit = unassignedAreaIds.length === 0 && emptyDistricts.length === 0 && contiguity.isValid;
+  const populationValid = populationViolations.length === 0;
+  const finalScore = calculateFinalScore({
+    missionType,
+    distortionScore,
+    penalty,
+    bonus,
+    districtCount: districts.length,
+    canSubmit,
+    populationValid,
+  });
+  const targetMatched = missionType === "round2_extreme" ? seatsMatchRound2Target(seats) : targetSeats ? seatsMatchTarget(seats, targetSeats) : false;
+  const errors = [
+    ...contiguity.errors,
+    ...(unassignedAreaIds.length > 0 ? [`아직 배정하지 않은 읍·면·동이 ${unassignedAreaIds.length}곳 있습니다.`] : []),
+    ...(emptyDistricts.length > 0 ? [`비어 있는 선거구가 ${emptyDistricts.length}개 있습니다.`] : []),
+  ];
+
+  return {
+    canSubmit,
+    missionSuccess:
+      (missionType === "round1_valid" && canSubmit && populationValid) ||
+      (missionType === "round2_extreme" && canSubmit && populationValid && targetMatched) ||
+      (missionType === "round3_fair" && canSubmit && populationValid),
+    seats,
+    expectedSeats,
+    distortionByParty,
+    distortionScore,
+    proportionalityScore,
+    advantagedParty,
+    penalty,
+    bonus,
+    finalScore,
+    districtResults,
+    contiguity,
+    populationViolations,
+    packingViolations,
+    unassignedAreaIds,
+    emptyDistricts,
+    errors,
+  };
+}
