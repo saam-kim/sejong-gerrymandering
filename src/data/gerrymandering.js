@@ -11,7 +11,7 @@ export const RECOMMENDED_DISTRICT_COUNT = 5;
 export const DISTRICT_COUNT_OPTIONS = [4, 5, 6];
 export const DEFAULT_ELECTION_DATASET_ID = "localMayor2022";
 export const DEFAULT_MISSION_TYPE = "round1_valid";
-export const DISTRICT_POPULATION_LIMITS = { minPopulation: 70_000, maxPopulation: 100_000 };
+export const DISTRICT_POPULATION_LIMITS = { minPopulation: 60_000, maxPopulation: 110_000 };
 
 export const MISSION_TYPES = {
   round1_valid: {
