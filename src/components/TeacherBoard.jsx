@@ -330,7 +330,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const [compareExpanded, setCompareExpanded] = useState(false);
   const [closingOpen, setClosingOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const { db: connectedDb, mission, room, teams, roundProgress, leaderboard, setMission, resetRound, confirmTeams, error } = useGerrymandering({
+  const { db: connectedDb, mission, room, teams, roundProgress, leaderboard, setMission, resetRound, confirmTeams, pauseTimer, resumeTimer, addTime, resetTimer, error } = useGerrymandering({
     pin,
     db,
     autoRegisterTeam: false,
@@ -391,7 +391,9 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const teamCount = teamEntries.length;
   const progressTotal = Math.max(teamCount, leaderboard.length, 1);
   const progressWidth = `${Math.min(100, (submittedCount / progressTotal) * 100)}%`;
-  const remainingTime = mission?.endsAt ? mission.endsAt - now : null;
+  const remainingTime = mission?.paused
+    ? (mission.pausedRemainingMs ?? 0)
+    : mission?.endsAt ? mission.endsAt - now : null;
 
   useEffect(() => {
     setRestartArmed(false);
@@ -738,6 +740,60 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                   </div>
                 </section>
 
+                {hasMission ? (
+                  <section className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h2 className="text-sm font-black text-slate-900">타이머 조절</h2>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-black ${mission?.paused ? "bg-yellow-100 text-yellow-800" : "bg-emerald-50 text-emerald-700"}`}>
+                        {mission?.paused ? "일시정지" : "진행 중"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={mission?.paused ? resumeTimer : pauseTimer}
+                        className={`rounded-lg px-3 py-2 text-xs font-black ${mission?.paused ? "bg-emerald-600 text-white hover:bg-emerald-700" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}
+                      >
+                        {mission?.paused ? "▶ 재개" : "⏸ 일시정지"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetTimer}
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100"
+                      >
+                        ↺ 시간 초기화
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addTime(10)}
+                        className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 hover:bg-blue-100"
+                      >
+                        +10초
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addTime(30)}
+                        className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 hover:bg-blue-100"
+                      >
+                        +30초
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addTime(60)}
+                        className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 hover:bg-blue-100"
+                      >
+                        +1분
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addTime(-60)}
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-100"
+                      >
+                        -1분
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
                 <button
                   type="button"
                   onClick={startMission}
@@ -747,7 +803,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                       : "bg-blue-600 text-white hover:bg-blue-800"
                   }`}
                 >
-                  {!hasMission ? "라운드 시작" : restartArmed ? "정말 다시 시작" : "다음 라운드 시작"}
+                  {!hasMission ? "라운드 시작" : restartArmed ? "정말 다음 라운드 시작" : "다음 라운드 시작"}
                 </button>
                 <button
                   type="button"

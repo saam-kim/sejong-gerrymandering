@@ -610,7 +610,9 @@ export default function StudentMap({ pin, teamId, teamName = "우리 모둠", db
     [normalizedAssignments, selectedAreaIds],
   );
   const selectedContiguous = isAreaSetContiguous(selectedAreaIds);
-  const remainingTime = mission?.endsAt ? mission.endsAt - now : null;
+  const remainingTime = mission?.paused
+    ? (mission.pausedRemainingMs ?? 0)
+    : mission?.endsAt ? mission.endsAt - now : null;
   const missionStartedAt = mission?.startedAtClient || null;
   const populationRange = getPopulationRange(DISTRICTS.length);
   const selectedPopulation = selectedAreaIds.reduce((sum, areaId) => sum + (AREA_BY_ID[areaId]?.population || 0), 0);

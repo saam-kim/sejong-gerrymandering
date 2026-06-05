@@ -350,6 +350,52 @@ export function useGerrymandering({
     await remove(ref(database, gamePath(pin, "submissions")));
   }, [database, pin]);
 
+  const pauseTimer = useCallback(async () => {
+    if (!database || !pin || !mission?.endsAt || mission?.paused) return;
+    const remaining = mission.endsAt - Date.now();
+    await update(ref(database, gamePath(pin, "mission")), {
+      paused: true,
+      pausedRemainingMs: Math.max(0, remaining),
+      updatedAt: serverTimestamp(),
+    });
+  }, [database, mission, pin]);
+
+  const resumeTimer = useCallback(async () => {
+    if (!database || !pin || !mission?.paused) return;
+    await update(ref(database, gamePath(pin, "mission")), {
+      paused: false,
+      pausedRemainingMs: null,
+      endsAt: Date.now() + (mission.pausedRemainingMs || 0),
+      updatedAt: serverTimestamp(),
+    });
+  }, [database, mission, pin]);
+
+  const addTime = useCallback(async (seconds) => {
+    if (!database || !pin || !mission) return;
+    const ms = seconds * 1000;
+    if (mission.paused) {
+      await update(ref(database, gamePath(pin, "mission")), {
+        pausedRemainingMs: Math.max(0, (mission.pausedRemainingMs || 0) + ms),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await update(ref(database, gamePath(pin, "mission")), {
+        endsAt: (mission.endsAt || Date.now()) + ms,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }, [database, mission, pin]);
+
+  const resetTimer = useCallback(async () => {
+    if (!database || !pin || !mission) return;
+    await update(ref(database, gamePath(pin, "mission")), {
+      paused: false,
+      pausedRemainingMs: null,
+      endsAt: Date.now() + (mission.durationSeconds || 300) * 1000,
+      updatedAt: serverTimestamp(),
+    });
+  }, [database, mission, pin]);
+
   const confirmTeams = useCallback(
     async (teamEntries = []) => {
       if (!database || !pin) return;
@@ -419,6 +465,10 @@ export function useGerrymandering({
     setMission,
     resetRound,
     confirmTeams,
+    pauseTimer,
+    resumeTimer,
+    addTime,
+    resetTimer,
   };
 }
 
