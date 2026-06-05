@@ -385,6 +385,9 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
   const selectedMissionType = mission?.missionType || missionType;
   const selectedMissionConfig = MISSION_TYPES[selectedMissionType] || MISSION_TYPES[DEFAULT_MISSION_TYPE];
   const hasMission = Boolean(mission);
+  const activeMissionTypeForNext = hasMission ? mission?.missionType : missionType;
+  const currentRoundIndex = roundMissionItems.findIndex((item) => item.id === activeMissionTypeForNext);
+  const nextRoundItem = hasMission ? (roundMissionItems[currentRoundIndex + 1] ?? null) : null;
   const hasSubmission = leaderboard.length > 0;
   const submittedCount = leaderboard.filter((entry) => entry.status === "submitted" || entry.status === "mission_success").length;
   const successCount = leaderboard.filter((entry) => entry.status === "mission_success" || entry.missionSuccess).length;
@@ -406,15 +409,21 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
       return;
     }
 
+    const activeMissionType = hasMission ? mission.missionType : missionType;
+    const currentIndex = roundMissionItems.findIndex((item) => item.id === activeMissionType);
+    const nextItem = hasMission ? roundMissionItems[currentIndex + 1] : null;
+    const resolvedMissionType = nextItem ? nextItem.id : missionType;
+
     const dataset = getElectionDataset(electionDatasetId);
-    const missionConfig = MISSION_TYPES[missionType] || MISSION_TYPES[DEFAULT_MISSION_TYPE];
+    const missionConfig = MISSION_TYPES[resolvedMissionType] || MISSION_TYPES[DEFAULT_MISSION_TYPE];
     await setMission({
       targetSeats,
       electionDatasetId,
-      missionType,
+      missionType: resolvedMissionType,
       durationSeconds: missionConfig.durationSeconds || 300,
       title: `${missionConfig.name}: ${dataset.name}`,
     });
+    if (nextItem) setMissionType(resolvedMissionType);
     await resetRound();
     setSelectedTeamId(null);
     setCompareTeamId(null);
@@ -803,7 +812,13 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                       : "bg-blue-600 text-white hover:bg-blue-800"
                   }`}
                 >
-                  {!hasMission ? "라운드 시작" : restartArmed ? "정말 다음 라운드 시작" : "다음 라운드 시작"}
+                  {!hasMission
+                    ? "라운드 시작"
+                    : restartArmed
+                    ? `정말 ${nextRoundItem ? nextRoundItem.name : "다음 라운드"} 시작`
+                    : nextRoundItem
+                    ? `다음 라운드 시작 (${nextRoundItem.name})`
+                    : "다음 라운드 시작"}
                 </button>
                 <button
                   type="button"
@@ -817,7 +832,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                 </button>
                 {restartArmed ? (
                   <p className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-[11px] font-black leading-5 text-yellow-800">
-                    다시 시작하면 현재 제출 현황이 초기화됩니다. 계속하려면 한 번 더 누르세요.
+                    {nextRoundItem ? `${nextRoundItem.name}(으)로` : "다음 라운드로"} 넘어가면 현재 제출 현황이 초기화됩니다. 계속하려면 한 번 더 누르세요.
                   </p>
                 ) : null}
                 {resetArmed ? (
