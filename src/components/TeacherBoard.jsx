@@ -65,7 +65,6 @@ function ScoreSummary({
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-extrabold text-slate-500">
       <span className="text-[#1B6BFF]">민주 {submission.seats?.DEM || 0}</span>
       <span className="text-[#E34848]">국힘 {submission.seats?.PPP || 0}</span>
-      <span>왜곡 {evaluation.distortionScore.toFixed(2)}</span>
       <span>미션 {submission.missionScore || 0}점</span>
     </div>
   );
@@ -1000,7 +999,7 @@ export default function TeacherBoard({ pin, db, defaultTargetSeats = { DEM: 3, P
                           <div className="bg-[#E34848] opacity-80" style={{ flex: pppFlex }} />
                         </div>
                         <p className="mt-2 text-[11px] font-extrabold text-slate-500">
-                          미션 {entry.missionScore || 0}점 · 왜곡 {Number(entry.distortionScore || 0).toFixed(2)}석 · 인구 위반 {entry.violations?.population ?? 0}
+                          미션 {entry.missionScore || 0}점 · 인구 위반 {entry.violations?.population ?? 0}
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 px-3.5 pb-3">

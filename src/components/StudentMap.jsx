@@ -399,7 +399,6 @@ function ProportionalityTab({ evaluation }) {
         {PARTIES.map((party) => {
           const voteShare = (evaluation.expectedSeats[party.id] || 0) / totalSeats;
           const seatShare = (evaluation.seats[party.id] || 0) / totalSeats;
-          const distortion = evaluation.distortionByParty[party.id] || 0;
 
           return (
             <div key={party.id} className="rounded-lg border border-slate-200 bg-white p-3">
@@ -407,7 +406,6 @@ function ProportionalityTab({ evaluation }) {
                 <span className="text-xs font-black" style={{ color: party.color }}>
                   {party.name}
                 </span>
-                <span className="text-[11px] font-extrabold text-slate-500">왜곡 {distortion.toFixed(2)}석</span>
               </div>
               <div className="mt-2 grid gap-2">
                 {[
@@ -558,7 +556,6 @@ function CheckTab({ evaluation, connectedDb, populationRange, missionType }) {
           </div>
           <div className="grid gap-2 p-3 text-xs font-bold leading-5 text-emerald-900">
             <p>득표율과 의석 비율의 차이가 작을수록 더 공정한 선거구로 평가합니다.</p>
-            <p>현재 왜곡 점수: {evaluation.distortionScore.toFixed(2)} · 낮을수록 좋습니다.</p>
             <p>인구와 인접 조건을 지키는 것은 기본 조건입니다.</p>
           </div>
         </div>

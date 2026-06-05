@@ -121,11 +121,6 @@ function isScoreEligible(entry, missionType) {
 
 function sortScoreEligibleEntries(entries, missionType) {
   return [...entries].sort((left, right) => {
-    if (missionType === "round2_extreme") {
-      const distortionDiff = Number(right.distortionScore || 0) - Number(left.distortionScore || 0);
-      if (distortionDiff !== 0) return distortionDiff;
-    }
-
     if (missionType === "round3_fair") {
       const proportionalityDiff = Number(right.proportionalityScore || 0) - Number(left.proportionalityScore || 0);
       if (proportionalityDiff !== 0) return proportionalityDiff;
